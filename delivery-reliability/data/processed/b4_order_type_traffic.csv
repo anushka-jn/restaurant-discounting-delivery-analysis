@@ -1,0 +1,17 @@
+order_type,traffic_density,n_orders,median_time
+Buffet,Jam,3471,31.0
+Drinks,Low,3827,20.0
+Drinks,High,1099,27.0
+Meal,High,1130,28.0
+Meal,Low,3867,21.0
+Snack,Medium,2736,26.0
+Snack,Low,3956,20.0
+Snack,High,1070,27.0
+Buffet,Low,3826,20.0
+Buffet,High,1124,27.0
+Drinks,Medium,2780,27.0
+Drinks,Jam,3484,30.0
+Meal,Jam,3575,30.0
+Snack,Jam,3609,31.0
+Meal,Medium,2718,27.0
+Buffet,Medium,2711,26.0

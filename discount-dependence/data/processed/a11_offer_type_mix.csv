@@ -1,0 +1,8 @@
+price_band,has_bogo_offer,restaurant_count,mean_rating_count
+Value,False,50914,774.0
+Mid,False,10761,911.0
+Budget,True,7,1594.0
+Premium,False,1376,686.0
+Value,True,36,742.0
+Budget,False,12560,571.0
+Mid,True,2,550.0

@@ -1,0 +1,459 @@
+<title>Delivery Reliability</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-page: #f9f9f7;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --gridline: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --series-3: #1baf7a;
+    --series-4: #eda100;
+    --good: #0ca30c;
+    --warning: #fab219;
+    --serious: #ec835a;
+    --critical: #d03b3b;
+    --seq-100: #cde2fb; --seq-200: #9ec5f4; --seq-300: #6da7ec;
+    --seq-400: #3987e5; --seq-500: #256abf; --seq-600: #184f95; --seq-700: #0d366b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-1: #1a1a19; --surface-page: #0d0d0d;
+      --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #898781;
+      --gridline: #2c2c2a; --baseline: #383835; --border: rgba(255,255,255,0.10);
+      --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
+      --good: #0ca30c; --warning: #fab219; --serious: #ec835a; --critical: #e66767;
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-1: #1a1a19; --surface-page: #0d0d0d;
+    --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #898781;
+    --gridline: #2c2c2a; --baseline: #383835; --border: rgba(255,255,255,0.10);
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
+    --good: #0ca30c; --warning: #fab219; --serious: #ec835a; --critical: #e66767;
+  }
+
+  * { box-sizing: border-box; }
+  .viz-root { background: var(--surface-page); color: var(--text-primary); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; padding: 20px 16px 60px; }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  header.page h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  header.page p.lede { color: var(--text-secondary); font-size: 14.5px; max-width: 700px; line-height: 1.5; margin: 0 0 4px; }
+  header.page .source { color: var(--text-muted); font-size: 12.5px; margin-top: 10px; }
+
+  .kpi-row { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 10px; margin: 22px 0 30px; }
+  @media (max-width: 760px) { .kpi-row { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+  .kpi { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px 14px 12px; }
+  .kpi .label { font-size: 11.5px; color: var(--text-secondary); margin-bottom: 6px; }
+  .kpi .value { font-size: 26px; font-weight: 600; line-height: 1.1; }
+  .kpi .value.good { color: var(--good); }
+  .kpi .value.critical { color: var(--critical); }
+  .kpi .sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+  section.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 20px 20px 16px; margin-bottom: 20px; }
+  section.card h2 { font-size: 16.5px; margin: 0 0 4px; }
+  section.card p.dek { font-size: 13px; color: var(--text-secondary); margin: 0 0 16px; max-width: 640px; line-height: 1.5; }
+  section.card .finding { background: color-mix(in srgb, var(--series-1) 8%, transparent); border-left: 3px solid var(--series-1); padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 13px; color: var(--text-primary); margin-top: 14px; line-height: 1.55; }
+  section.card .finding b { color: var(--series-1); }
+  section.card .finding.crit { background: color-mix(in srgb, var(--critical) 8%, transparent); border-left-color: var(--critical); }
+  section.card .finding.crit b { color: var(--critical); }
+
+  .chart-scroll { overflow-x: auto; }
+  svg.chart { display: block; width: 100%; height: auto; overflow: visible; }
+  .axis-label { fill: var(--text-muted); font-size: 10.5px; }
+  .tick-label { fill: var(--text-muted); font-size: 10px; }
+  .grid-line { stroke: var(--gridline); stroke-width: 1; }
+  .baseline { stroke: var(--baseline); stroke-width: 1; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; font-size: 12px; color: var(--text-secondary); }
+  .legend .item { display: flex; align-items: center; gap: 6px; }
+  .legend .swatch-line { width: 14px; height: 2px; border-radius: 1px; }
+  .legend .swatch-box { width: 10px; height: 10px; border-radius: 2px; }
+
+  .tooltip { position: fixed; pointer-events: none; background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 50; opacity: 0; transition: opacity 0.08s; max-width: 260px; }
+  .tooltip.show { opacity: 1; }
+  .tooltip .t-title { color: var(--text-secondary); font-size: 11px; margin-bottom: 4px; }
+  .tooltip .t-row { display: flex; align-items: center; gap: 6px; }
+  .tooltip .t-row + .t-row { margin-top: 3px; }
+  .tooltip .t-key { width: 10px; height: 2px; border-radius: 1px; flex: none; }
+  .tooltip .t-val { font-weight: 600; color: var(--text-primary); }
+  .tooltip .t-name { color: var(--text-secondary); }
+
+  table.rec { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.rec th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); font-weight: 600; padding: 6px 10px; border-bottom: 1px solid var(--gridline); }
+  table.rec td { padding: 7px 10px; border-bottom: 1px solid var(--gridline); font-variant-numeric: tabular-nums; }
+  table.rec td.num { text-align: right; }
+  table.rec tr:hover td { background: color-mix(in srgb, var(--series-1) 5%, transparent); }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .pill.critical { background: color-mix(in srgb, var(--critical) 16%, transparent); color: var(--critical); }
+
+  ul.limits { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.7; color: var(--text-secondary); }
+  ul.limits li b { color: var(--text-primary); }
+  footer.page { margin-top: 30px; font-size: 11.5px; color: var(--text-muted); line-height: 1.7; border-top: 1px solid var(--gridline); padding-top: 16px; }
+  footer.page code { background: var(--gridline); padding: 1px 5px; border-radius: 4px; }
+
+  .heat-grid { display: grid; }
+  .heat-cell { border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; cursor: pointer; }
+  .heat-row-label { font-size: 11.5px; color: var(--text-secondary); display: flex; align-items: center; padding-right: 8px; font-weight: 600; }
+  .heat-col-label { font-size: 10.5px; color: var(--text-muted); text-align: center; padding-bottom: 6px; }
+</style>
+
+<div class="viz-root">
+<div class="wrap">
+
+  <header class="page">
+    <h1>Delivery Performance &amp; Reliability</h1>
+    <p class="lede">Zomato's promise is a delivery time — but the average hides the damage, because it's concentrated in the tail. This leads with P90, not average, across 45,584 real order-level deliveries.</p>
+    <p class="source" id="source-line">Source: Kaggle — "Zomato Delivery Operations Analytics Dataset". Loading…</p>
+  </header>
+
+  <div class="kpi-row" id="kpi-row"></div>
+
+  <section class="card">
+    <h2>Overview — reliability over time</h2>
+    <p class="dek">Daily median vs P90 delivery time across the ~44-day scrape window. The gap between the two lines is the reliability tax the median hides.</p>
+    <div class="legend" id="legend-trend"></div>
+    <div class="chart-scroll"><svg class="chart" id="chart-trend" viewBox="0 0 920 280"></svg></div>
+    <div class="finding" id="finding-trend"></div>
+  </section>
+
+  <section class="card">
+    <h2>Where it breaks — P90 by traffic × weather (Metro)</h2>
+    <p class="dek">P90 delivery time (minutes) for every traffic × weather combination in Metropolitan orders — the largest, cleanest slice of the data. Darker = slower.</p>
+    <div id="heatmap-wrap"></div>
+    <div class="finding crit" id="finding-heatmap"></div>
+  </section>
+
+  <section class="card">
+    <h2>What's actually driving SLA breaches</h2>
+    <p class="dek">Condition combinations ranked by their share of all &gt;40-minute deliveries (not just their own breach rate) — this is where a fix moves the needle.</p>
+    <div class="chart-scroll"><svg class="chart" id="chart-breach" viewBox="0 0 920 280"></svg></div>
+  </section>
+
+  <section class="card">
+    <h2>Kitchen vs. road: where does the time actually go?</h2>
+    <p class="dek">Average minutes split into pickup delay (kitchen/restaurant-owned) vs. transit (rider/road-owned), by traffic density.</p>
+    <div class="legend" id="legend-delay"></div>
+    <div class="chart-scroll"><svg class="chart" id="chart-delay" viewBox="0 0 920 220"></svg></div>
+    <div class="finding" id="finding-delay"></div>
+  </section>
+
+  <section class="card">
+    <h2>Rider &amp; vehicle factors</h2>
+    <p class="dek">Median delivery time by number of stacked (multiple) deliveries per trip, and by vehicle condition rating.</p>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;" id="rider-charts-wrap">
+      <div><p class="dek" style="margin-bottom:8px; font-weight:600;">Stacked deliveries per trip</p><div class="chart-scroll"><svg class="chart" id="chart-multi" viewBox="0 0 420 220"></svg></div></div>
+      <div><p class="dek" style="margin-bottom:8px; font-weight:600;">Vehicle condition (0=worst, 3=best)</p><div class="chart-scroll"><svg class="chart" id="chart-vehcond" viewBox="0 0 420 220"></svg></div></div>
+    </div>
+    <div class="finding" id="finding-rider"></div>
+  </section>
+
+  <section class="card">
+    <h2>Recommendation</h2>
+    <div id="rec-text" style="font-size:13.5px; line-height:1.7; color: var(--text-secondary);"></div>
+  </section>
+
+  <section class="card">
+    <h2>Limitations</h2>
+    <ul class="limits">
+      <li><b>The promised ETA isn't in this data.</b> Only actual delivery time is recorded, so this measures duration, not whether a promise was broken. The honest next step is instrumenting the quoted ETA, not more analysis of this file.</li>
+      <li><b>It's a single ~44-day snapshot</b> — seasonal effects (e.g. monsoon weather codes, a festival cluster) can't be separated from structural ones with one window.</li>
+      <li><b>Distance is derived from raw lat/lon that needed correction.</b> ~400 rows carried a sign-flipped latitude (fixed with ABS()); the haversine distance is straight-line, not actual road distance, so it understates real travel distance especially in dense urban grids.</li>
+      <li><b>"City" here is the rider's home-base code parsed from their ID</b> (e.g. <code>INDORES19DEL02</code> → Indore), not a verified order-level city field — a reasonable proxy, not ground truth.</li>
+    </ul>
+  </section>
+
+  <footer class="page">
+    Pipeline: DuckDB SQL (staging → cleaning → haversine/pickup-delay/daypart feature engineering → analysis). Every measure here is P90 or median, never a plain average, because reliability is a tail problem. Full SQL and cleaned tables in <code>sql/</code> and <code>data/processed/</code>.
+  </footer>
+
+</div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script id="dashboard-data" type="application/json">{"b1_overview":[{"n_orders":45584,"median_time":26.0,"p90_time":40.0,"pct_over_40min":8.9,"avg_distance_km":9.7,"n_total":45584,"n_cities":22,"n_dropped_bad_distance":0}],"b1_by_date":[{"order_date":"2022-02-11","n_orders":970,"median_time":23.0,"p90_time":33.0},{"order_date":"2022-02-12","n_orders":864,"median_time":29.0,"p90_time":44.0},{"order_date":"2022-02-13","n_orders":957,"median_time":23.0,"p90_time":33.0},{"order_date":"2022-02-14","n_orders":851,"median_time":29.0,"p90_time":44.0},{"order_date":"2022-02-15","n_orders":945,"median_time":23.0,"p90_time":33.0},{"order_date":"2022-02-16","n_orders":861,"median_time":30.0,"p90_time":43.0},{"order_date":"2022-02-17","n_orders":939,"median_time":24.0,"p90_time":33.0},{"order_date":"2022-02-18","n_orders":855,"median_time":29.0,"p90_time":42.0},{"order_date":"2022-03-01","n_orders":1140,"median_time":23.0,"p90_time":33.0},{"order_date":"2022-03-02","n_orders":1012,"median_time":29.0,"p90_time":43.0},{"order_date":"2022-03-03","n_orders":1150,"median_time":22.5,"p90_time":33.0},{"order_date":"2022-03-04","n_orders":980,"median_time":29.0,"p90_time":43.0},{"order_date":"2022-03-05","n_orders":1154,"median_time":23.0,"p90_time":33.0},{"order_date":"2022-03-06","n_orders":986,"median_time":29.0,"p90_time":43.0},{"order_date":"2022-03-07","n_orders":1153,"median_time":23.0,"p90_time":33.0},{"order_date":"2022-03-08","n_orders":964,"median_time":29.0,"p90_time":43.0},{"order_date":"2022-03-09","n_orders":1159,"median_time":24.0,"p90_time":33.0},{"order_date":"2022-03-10","n_orders":996,"median_time":29.0,"p90_time":43.5},{"order_date":"2022-03-11","n_orders":1148,"median_time":23.0,"p90_time":33.0},{"order_date":"2022-03-12","n_orders":964,"median_time":29.0,"p90_time":42.0},{"order_date":"2022-03-13","n_orders":1169,"median_time":23.0,"p90_time":33.0},{"order_date":"2022-03-14","n_orders":973,"median_time":29.0,"p90_time":43.8},{"order_date":"2022-03-15","n_orders":1192,"median_time":23.0,"p90_time":33.0},{"order_date":"2022-03-16","n_orders":995,"median_time":29.0,"p90_time":43.0},{"order_date":"2022-03-17","n_orders":1134,"median_time":23.0,"p90_time":33.0},{"order_date":"2022-03-18","n_orders":968,"median_time":30.0,"p90_time":43.0},{"order_date":"2022-03-19","n_orders":1148,"median_time":23.0,"p90_time":33.0},{"order_date":"2022-03-20","n_orders":993,"median_time":29.0,"p90_time":44.0},{"order_date":"2022-03-21","n_orders":1149,"median_time":24.0,"p90_time":33.0},{"order_date":"2022-03-23","n_orders":964,"median_time":29.0,"p90_time":44.0},{"order_date":"2022-03-24","n_orders":1162,"median_time":23.0,"p90_time":33.0},{"order_date":"2022-03-25","n_orders":974,"median_time":29.0,"p90_time":43.0},{"order_date":"2022-03-26","n_orders":1165,"median_time":23.0,"p90_time":33.0},{"order_date":"2022-03-27","n_orders":965,"median_time":29.0,"p90_time":43.0},{"order_date":"2022-03-28","n_orders":1139,"median_time":23.0,"p90_time":33.2},{"order_date":"2022-03-29","n_orders":977,"median_time":29.0,"p90_time":44.0},{"order_date":"2022-03-30","n_orders":1141,"median_time":23.0,"p90_time":33.0},{"order_date":"2022-03-31","n_orders":967,"median_time":28.0,"p90_time":43.0},{"order_date":"2022-04-01","n_orders":1133,"median_time":23.0,"p90_time":33.0},{"order_date":"2022-04-02","n_orders":992,"median_time":29.0,"p90_time":43.0},{"order_date":"2022-04-03","n_orders":1178,"median_time":23.0,"p90_time":33.0},{"order_date":"2022-04-04","n_orders":941,"median_time":28.0,"p90_time":42.0},{"order_date":"2022-04-05","n_orders":1156,"median_time":23.0,"p90_time":33.0},{"order_date":"2022-04-06","n_orders":961,"median_time":29.0,"p90_time":43.0}],"b1_distance_dist":[{"distance_band":"0-5 km","n_orders":12277,"median_time":21.0},{"distance_band":"10-15 km","n_orders":12288,"median_time":29.0},{"distance_band":"15-20 km","n_orders":6581,"median_time":29.0},{"distance_band":"20+ km","n_orders":2134,"median_time":29.0},{"distance_band":"5-10 km","n_orders":12304,"median_time":25.0}],"b2_heatmap":[{"city_tier":"Urban","traffic_density":"High","weather":"Windy","n_orders":164,"median_time":23.5,"p90_time":34.7},{"city_tier":"Metropolitian","traffic_density":"Jam","weather":"Sunny","n_orders":1622,"median_time":22.0,"p90_time":35.0},{"city_tier":"Metropolitian","traffic_density":"Low","weather":"Windy","n_orders":1757,"median_time":22.0,"p90_time":29.0},{"city_tier":"Metropolitian","traffic_density":"High","weather":"Sandstorms","n_orders":509,"median_time":29.0,"p90_time":40.0},{"city_tier":"Semi-Urban","traffic_density":"Jam","weather":"Fog","n_orders":30,"median_time":49.0,"p90_time":53.0},{"city_tier":"Urban","traffic_density":"Medium","weather":"Windy","n_orders":342,"median_time":26.0,"p90_time":35.0},{"city_tier":"Metropolitian","traffic_density":"High","weather":"Fog","n_orders":638,"median_time":28.0,"p90_time":36.0},{"city_tier":"Urban","traffic_density":"Low","weather":"Sunny","n_orders":659,"median_time":18.0,"p90_time":28.0},{"city_tier":"Urban","traffic_density":"Medium","weather":"Cloudy","n_orders":396,"median_time":21.0,"p90_time":39.0},{"city_tier":"Urban","traffic_density":"Jam","weather":"Sandstorms","n_orders":439,"median_time":26.0,"p90_time":39.0},{"city_tier":"Urban","traffic_density":"Low","weather":"Sandstorms","n_orders":720,"median_time":18.0,"p90_time":26.0},{"city_tier":"Metropolitian","traffic_density":"Medium","weather":"Windy","n_orders":1461,"median_time":28.0,"p90_time":37.0},{"city_tier":"Urban","traffic_density":"Jam","weather":"Sunny","n_orders":588,"median_time":19.0,"p90_time":32.0},{"city_tier":"Metropolitian","traffic_density":"High","weather":"Cloudy","n_orders":603,"median_time":29.0,"p90_time":35.0},{"city_tier":"Urban","traffic_density":"Low","weather":"Stormy","n_orders":724,"median_time":19.0,"p90_time":27.0},{"city_tier":"Semi-Urban","traffic_density":"Jam","weather":"Cloudy","n_orders":45,"median_time":49.0,"p90_time":53.6},{"city_tier":"Metropolitian","traffic_density":"Jam","weather":"Sandstorms","n_orders":1887,"median_time":30.0,"p90_time":43.0},{"city_tier":"Metropolitian","traffic_density":"High","weather":"Sunny","n_orders":509,"median_time":21.0,"p90_time":46.0},{"city_tier":"Urban","traffic_density":"Medium","weather":"Stormy","n_orders":365,"median_time":26.0,"p90_time":35.0},{"city_tier":"Metropolitian","traffic_density":"Jam","weather":"Cloudy","n_orders":1931,"median_time":37.0,"p90_time":47.0},{"city_tier":"Urban","traffic_density":"Jam","weather":"Stormy","n_orders":447,"median_time":27.0,"p90_time":40.0},{"city_tier":"Metropolitian","traffic_density":"Medium","weather":"Fog","n_orders":1401,"median_time":31.0,"p90_time":42.0},{"city_tier":"Metropolitian","traffic_density":"Jam","weather":"Windy","n_orders":1837,"median_time":30.0,"p90_time":43.0},{"city_tier":"Metropolitian","traffic_density":"Low","weather":"Sunny","n_orders":1740,"median_time":22.0,"p90_time":32.0},{"city_tier":"Urban","traffic_density":"High","weather":"Sunny","n_orders":197,"median_time":17.0,"p90_time":28.0},{"city_tier":"Metropolitian","traffic_density":"High","weather":"Stormy","n_orders":556,"median_time":29.0,"p90_time":39.0},{"city_tier":"Urban","traffic_density":"Medium","weather":"Sunny","n_orders":484,"median_time":18.0,"p90_time":28.0},{"city_tier":"Urban","traffic_density":"Low","weather":"Cloudy","n_orders":691,"median_time":18.0,"p90_time":29.0},{"city_tier":"Metropolitian","traffic_density":"Low","weather":"Fog","n_orders":1848,"median_time":22.0,"p90_time":37.0},{"city_tier":"Metropolitian","traffic_density":"Jam","weather":"Stormy","n_orders":1807,"median_time":29.0,"p90_time":42.0},{"city_tier":"Urban","traffic_density":"Jam","weather":"Cloudy","n_orders":332,"median_time":35.0,"p90_time":46.0},{"city_tier":"Urban","traffic_density":"Medium","weather":"Sandstorms","n_orders":358,"median_time":25.0,"p90_time":33.3},{"city_tier":"Urban","traffic_density":"High","weather":"Fog","n_orders":122,"median_time":27.0,"p90_time":33.0},{"city_tier":"Metropolitian","traffic_density":"Jam","weather":"Fog","n_orders":2000,"median_time":37.0,"p90_time":47.0},{"city_tier":"Metropolitian","traffic_density":"Low","weather":"Stormy","n_orders":1875,"median_time":22.0,"p90_time":28.0},{"city_tier":"Metropolitian","traffic_density":"Medium","weather":"Cloudy","n_orders":1400,"median_time":31.0,"p90_time":42.0},{"city_tier":"Urban","traffic_density":"High","weather":"Stormy","n_orders":168,"median_time":26.0,"p90_time":37.0},{"city_tier":"Metropolitian","traffic_density":"Low","weather":"Sandstorms","n_orders":1793,"median_time":21.0,"p90_time":28.0},{"city_tier":"Metropolitian","traffic_density":"High","weather":"Windy","n_orders":548,"median_time":28.0,"p90_time":38.0},{"city_tier":"Urban","traffic_density":"Medium","weather":"Fog","n_orders":411,"median_time":19.0,"p90_time":39.0},{"city_tier":"Urban","traffic_density":"High","weather":"Sandstorms","n_orders":165,"median_time":25.0,"p90_time":34.0},{"city_tier":"Metropolitian","traffic_density":"Medium","weather":"Sandstorms","n_orders":1392,"median_time":28.0,"p90_time":38.0},{"city_tier":"Urban","traffic_density":"Low","weather":"Windy","n_orders":635,"median_time":19.0,"p90_time":27.0},{"city_tier":"Urban","traffic_density":"Low","weather":"Fog","n_orders":661,"median_time":18.0,"p90_time":30.0},{"city_tier":"Metropolitian","traffic_density":"Low","weather":"Cloudy","n_orders":1833,"median_time":22.0,"p90_time":36.0},{"city_tier":"Urban","traffic_density":"High","weather":"Cloudy","n_orders":128,"median_time":27.5,"p90_time":34.3},{"city_tier":"Metropolitian","traffic_density":"Medium","weather":"Stormy","n_orders":1424,"median_time":28.0,"p90_time":38.0},{"city_tier":"Urban","traffic_density":"Jam","weather":"Fog","n_orders":368,"median_time":35.0,"p90_time":46.0},{"city_tier":"Urban","traffic_density":"Jam","weather":"Windy","n_orders":452,"median_time":27.0,"p90_time":40.0},{"city_tier":"Metropolitian","traffic_density":"Medium","weather":"Sunny","n_orders":1240,"median_time":20.0,"p90_time":29.0}],"b3_rider_rating":[{"rating_band":"4.0-4.5","n_orders":6694,"median_time":34.0,"p90_time":44.0},{"rating_band":"4.5-4.8","n_orders":17380,"median_time":24.0,"p90_time":36.0},{"rating_band":"< 4.0","n_orders":1367,"median_time":36.0,"p90_time":43.0},{"rating_band":"Unknown","n_orders":1908,"median_time":25.0,"p90_time":41.0},{"rating_band":"4.8+","n_orders":18235,"median_time":24.0,"p90_time":37.0}],"b3_vehicle":[{"vehicle_type":"electric_scooter","n_orders":3814,"median_time":24.0,"p90_time":37.0},{"vehicle_type":"bicycle","n_orders":68,"median_time":26.0,"p90_time":39.0},{"vehicle_type":"scooter","n_orders":15273,"median_time":24.0,"p90_time":37.0},{"vehicle_type":"motorcycle","n_orders":26429,"median_time":26.0,"p90_time":42.0}],"b3_vehicle_condition":[{"vehicle_condition":0,"n_orders":15005,"median_time":28.0,"p90_time":44.0},{"vehicle_condition":1,"n_orders":15028,"median_time":24.0,"p90_time":37.0},{"vehicle_condition":2,"n_orders":15031,"median_time":24.0,"p90_time":37.0},{"vehicle_condition":3,"n_orders":520,"median_time":26.0,"p90_time":39.0}],"b3_multiple_deliveries":[{"multiple_deliveries":0,"n_orders":14094,"median_time":22.0,"p90_time":35.0},{"multiple_deliveries":1,"n_orders":28151,"median_time":26.0,"p90_time":39.0},{"multiple_deliveries":2,"n_orders":1985,"median_time":40.0,"p90_time":48.0},{"multiple_deliveries":3,"n_orders":361,"median_time":48.0,"p90_time":53.0}],"b4_order_type_traffic":[{"order_type":"Buffet","traffic_density":"Jam","n_orders":3471,"median_time":31.0},{"order_type":"Drinks","traffic_density":"Low","n_orders":3827,"median_time":20.0},{"order_type":"Drinks","traffic_density":"High","n_orders":1099,"median_time":27.0},{"order_type":"Meal","traffic_density":"High","n_orders":1130,"median_time":28.0},{"order_type":"Meal","traffic_density":"Low","n_orders":3867,"median_time":21.0},{"order_type":"Snack","traffic_density":"Medium","n_orders":2736,"median_time":26.0},{"order_type":"Snack","traffic_density":"Low","n_orders":3956,"median_time":20.0},{"order_type":"Snack","traffic_density":"High","n_orders":1070,"median_time":27.0},{"order_type":"Buffet","traffic_density":"Low","n_orders":3826,"median_time":20.0},{"order_type":"Buffet","traffic_density":"High","n_orders":1124,"median_time":27.0},{"order_type":"Drinks","traffic_density":"Medium","n_orders":2780,"median_time":27.0},{"order_type":"Drinks","traffic_density":"Jam","n_orders":3484,"median_time":30.0},{"order_type":"Meal","traffic_density":"Jam","n_orders":3575,"median_time":30.0},{"order_type":"Snack","traffic_density":"Jam","n_orders":3609,"median_time":31.0},{"order_type":"Meal","traffic_density":"Medium","n_orders":2718,"median_time":27.0},{"order_type":"Buffet","traffic_density":"Medium","n_orders":2711,"median_time":26.0}],"b4_delay_decomposition":[{"traffic_density":"High","n_orders":3457,"avg_pickup_delay_min":9.9,"avg_transit_min":17.3,"avg_total_min":27.2},{"traffic_density":"Low","n_orders":11874,"avg_pickup_delay_min":9.9,"avg_transit_min":11.4,"avg_total_min":21.2},{"traffic_density":"Medium","n_orders":8783,"avg_pickup_delay_min":10.0,"avg_transit_min":16.7,"avg_total_min":26.7},{"traffic_density":"Jam","n_orders":11293,"avg_pickup_delay_min":10.0,"avg_transit_min":21.2,"avg_total_min":31.1}],"b5_breach_drivers":[{"city_tier":"Metropolitian","traffic_density":"Jam","weather":"Fog","n_orders":2000,"n_breaches":707.0,"pct_breach":35.4,"pct_of_all_breaches":18.3},{"city_tier":"Metropolitian","traffic_density":"Jam","weather":"Cloudy","n_orders":1931,"n_breaches":675.0,"pct_breach":35.0,"pct_of_all_breaches":17.5},{"city_tier":"Metropolitian","traffic_density":"Jam","weather":"Windy","n_orders":1837,"n_breaches":289.0,"pct_breach":15.7,"pct_of_all_breaches":7.5},{"city_tier":"Metropolitian","traffic_density":"Jam","weather":"Sandstorms","n_orders":1887,"n_breaches":287.0,"pct_breach":15.2,"pct_of_all_breaches":7.4},{"city_tier":"Metropolitian","traffic_density":"Jam","weather":"Stormy","n_orders":1807,"n_breaches":246.0,"pct_breach":13.6,"pct_of_all_breaches":6.4},{"city_tier":"Metropolitian","traffic_density":"Medium","weather":"Cloudy","n_orders":1400,"n_breaches":189.0,"pct_breach":13.5,"pct_of_all_breaches":4.9},{"city_tier":"Metropolitian","traffic_density":"Medium","weather":"Fog","n_orders":1401,"n_breaches":179.0,"pct_breach":12.8,"pct_of_all_breaches":4.6},{"city_tier":"Urban","traffic_density":"Jam","weather":"Fog","n_orders":368,"n_breaches":114.0,"pct_breach":31.0,"pct_of_all_breaches":3.0},{"city_tier":"Metropolitian","traffic_density":"Jam","weather":"Sunny","n_orders":1622,"n_breaches":116.0,"pct_breach":7.2,"pct_of_all_breaches":3.0},{"city_tier":"Metropolitian","traffic_density":"High","weather":"Sunny","n_orders":509,"n_breaches":95.0,"pct_breach":18.7,"pct_of_all_breaches":2.5},{"city_tier":"Urban","traffic_density":"Jam","weather":"Cloudy","n_orders":332,"n_breaches":95.0,"pct_breach":28.6,"pct_of_all_breaches":2.5},{"city_tier":"Metropolitian","traffic_density":"Medium","weather":"Sandstorms","n_orders":1392,"n_breaches":70.0,"pct_breach":5.0,"pct_of_all_breaches":1.8},{"city_tier":"Metropolitian","traffic_density":"Low","weather":"Cloudy","n_orders":1833,"n_breaches":66.0,"pct_breach":3.6,"pct_of_all_breaches":1.7},{"city_tier":"Metropolitian","traffic_density":"Low","weather":"Fog","n_orders":1848,"n_breaches":66.0,"pct_breach":3.6,"pct_of_all_breaches":1.7},{"city_tier":"Metropolitian","traffic_density":"Low","weather":"Sunny","n_orders":1740,"n_breaches":61.0,"pct_breach":3.5,"pct_of_all_breaches":1.6}],"summary":{"n_orders":45584,"median_time":26.0,"p90_time":40.0,"pct_over_40min":8.9,"avg_distance_km":9.7,"n_total":45584,"n_cities":22,"n_dropped_bad_distance":0}}</script>
+<script>
+(function(){
+  const DATA = JSON.parse(document.getElementById('dashboard-data').textContent);
+  const root = document.querySelector('.viz-root');
+  const cs = getComputedStyle(root);
+  const C = (name) => cs.getPropertyValue(name).trim();
+  const fmtInt = (n) => Math.round(n).toLocaleString('en-IN');
+
+  const tooltip = document.getElementById('tooltip');
+  function showTooltip(x, y, html) {
+    tooltip.innerHTML = html;
+    tooltip.style.left = Math.min(x + 14, window.innerWidth - 280) + 'px';
+    tooltip.style.top = (y + 14) + 'px';
+    tooltip.classList.add('show');
+  }
+  function hideTooltip(){ tooltip.classList.remove('show'); }
+
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  function el(tag, attrs) {
+    const e = document.createElementNS(SVGNS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  // ---------- KPI row ----------
+  const s = DATA.summary;
+  const kpis = [
+    { label: 'Orders analysed', value: fmtInt(s.n_orders), sub: `${s.n_cities} rider home cities` },
+    { label: 'Median delivery time', value: s.median_time + ' min', sub: 'the "typical" experience' },
+    { label: 'P90 delivery time', value: s.p90_time + ' min', valueClass: 'critical', sub: '1 in 10 orders take this long or longer' },
+    { label: 'SLA breach rate (>40 min)', value: s.pct_over_40min + '%', valueClass: 'critical', sub: 'of all orders' },
+    { label: 'Avg trip distance', value: s.avg_distance_km + ' km', sub: 'restaurant → drop, haversine' },
+  ];
+  const kpiRow = document.getElementById('kpi-row');
+  kpis.forEach(k => {
+    const div = document.createElement('div');
+    div.className = 'kpi';
+    div.innerHTML = `<div class="label"></div><div class="value ${k.valueClass||''}"></div><div class="sub"></div>`;
+    div.querySelector('.label').textContent = k.label;
+    div.querySelector('.value').textContent = k.value;
+    div.querySelector('.sub').textContent = k.sub;
+    kpiRow.appendChild(div);
+  });
+  document.getElementById('source-line').textContent =
+    `Source: Kaggle "Zomato Delivery Operations Analytics Dataset" — ${fmtInt(s.n_orders)} real order-level records. Pipeline: DuckDB SQL.`;
+
+  // ============ Trend chart (median vs P90 over time) ============
+  (function(){
+    const rows = DATA.b1_by_date.slice().sort((a,b) => a.order_date.localeCompare(b.order_date));
+    const W = 920, H = 280, M = { l: 46, r: 20, t: 16, b: 40 };
+    const plotW = W - M.l - M.r, plotH = H - M.t - M.b;
+    const svg = document.getElementById('chart-trend');
+    svg.innerHTML = '';
+    const yMax = Math.ceil(Math.max(...rows.map(r=>r.p90_time)) / 10) * 10 + 5;
+    const xStep = plotW / (rows.length - 1);
+    const xPos = (i) => M.l + i * xStep;
+    const yPos = (v) => M.t + plotH - (v / yMax) * plotH;
+
+    [0, 10, 20, 30, 40, 50].filter(v=>v<=yMax).forEach(v => {
+      const y = yPos(v);
+      svg.appendChild(el('line', { x1: M.l, x2: W-M.r, y1: y, y2: y, class: 'grid-line' }));
+      const t = el('text', { x: M.l-8, y: y+3, class: 'tick-label', 'text-anchor': 'end' });
+      t.textContent = v; svg.appendChild(t);
+    });
+    [0, Math.floor(rows.length/2), rows.length-1].forEach(i => {
+      const t = el('text', { x: xPos(i), y: H-M.b+18, class: 'tick-label', 'text-anchor': 'middle' });
+      t.textContent = rows[i].order_date.slice(5);
+      svg.appendChild(t);
+    });
+    svg.appendChild(el('line', { x1: M.l, x2: W-M.r, y1: M.t+plotH, y2: M.t+plotH, class: 'baseline' }));
+
+    function drawLine(key, color) {
+      let d = '';
+      rows.forEach((r,i) => { d += (i===0?'M':'L') + xPos(i) + ',' + yPos(r[key]) + ' '; });
+      svg.appendChild(el('path', { d, fill: 'none', stroke: color, 'stroke-width': 2, 'stroke-linecap':'round', 'stroke-linejoin':'round' }));
+      rows.forEach((r,i) => {
+        const hit = el('circle', { cx: xPos(i), cy: yPos(r[key]), r: 10, fill: 'transparent', style:'cursor:pointer' });
+        hit.addEventListener('pointermove', (e) => {
+          showTooltip(e.clientX, e.clientY, `<div class="t-title">${r.order_date}</div>
+            <div class="t-row"><span class="t-key" style="background:${color}"></span><span class="t-val">${r[key]}</span> <span class="t-name">min (n=${fmtInt(r.n_orders)})</span></div>`);
+        });
+        hit.addEventListener('pointerleave', hideTooltip);
+        svg.appendChild(hit);
+      });
+    }
+    drawLine('median_time', C('--series-1'));
+    drawLine('p90_time', C('--series-2'));
+
+    const legend = document.getElementById('legend-trend');
+    [['Median', C('--series-1')], ['P90', C('--series-2')]].forEach(([name,color]) => {
+      const item = document.createElement('div'); item.className='item';
+      item.innerHTML = `<span class="swatch-line" style="background:${color}"></span><span></span>`;
+      item.querySelector('span:last-child').textContent = name;
+      legend.appendChild(item);
+    });
+
+    document.getElementById('finding-trend').innerHTML =
+      `<b>The median-P90 gap is persistent, not a one-off spike.</b> P90 tracks 12-16 minutes above the median on almost every day in the window — the tail-risk customer isn't an occasional bad day, they're a standing feature of the system.`;
+  })();
+
+  // ============ Heatmap: traffic x weather (Metro) ============
+  (function(){
+    const rows = DATA.b2_heatmap.filter(r => r.city_tier === 'Metropolitian');
+    const traffic = ['Low','Medium','High','Jam'];
+    const weather = ['Sunny','Cloudy','Windy','Fog','Stormy','Sandstorms'];
+    const byKey = {}; rows.forEach(r => byKey[r.traffic_density+'|'+r.weather] = r);
+    const vals = rows.map(r => r.p90_time);
+    const vMin = Math.min(...vals), vMax = Math.max(...vals);
+    const seqSteps = [C('--seq-100'), C('--seq-200'), C('--seq-300'), C('--seq-400'), C('--seq-500'), C('--seq-600'), C('--seq-700')];
+    function colorFor(v) {
+      const t = (v - vMin) / (vMax - vMin);
+      const idx = Math.min(seqSteps.length-1, Math.floor(t * seqSteps.length));
+      return seqSteps[idx];
+    }
+    const wrap = document.getElementById('heatmap-wrap');
+    wrap.innerHTML = '';
+    const grid = document.createElement('div');
+    grid.className = 'heat-grid';
+    grid.style.gridTemplateColumns = `80px repeat(${weather.length}, 1fr)`;
+    grid.style.gap = '4px';
+    grid.appendChild(document.createElement('div'));
+    weather.forEach(w => {
+      const d = document.createElement('div'); d.className = 'heat-col-label'; d.textContent = w;
+      grid.appendChild(d);
+    });
+    traffic.forEach(t => {
+      const rl = document.createElement('div'); rl.className = 'heat-row-label'; rl.textContent = t;
+      grid.appendChild(rl);
+      weather.forEach(w => {
+        const cell = byKey[t+'|'+w];
+        const div = document.createElement('div');
+        div.className = 'heat-cell';
+        div.style.height = '46px';
+        if (cell) {
+          const bg = colorFor(cell.p90_time);
+          div.style.background = bg;
+          div.style.color = (cell.p90_time - vMin)/(vMax-vMin) > 0.55 ? '#fff' : C('--text-primary');
+          div.textContent = cell.p90_time;
+          div.addEventListener('pointermove', (e) => {
+            showTooltip(e.clientX, e.clientY, `<div class="t-title">${t} traffic · ${w}</div>
+              <div class="t-row"><span class="t-key" style="background:${bg}"></span><span class="t-val">${cell.p90_time} min</span> <span class="t-name">P90 (n=${fmtInt(cell.n_orders)}, median ${cell.median_time})</span></div>`);
+          });
+          div.addEventListener('pointerleave', hideTooltip);
+        } else {
+          div.style.background = C('--gridline');
+        }
+        grid.appendChild(div);
+      });
+    });
+    wrap.appendChild(grid);
+
+    document.getElementById('finding-heatmap').innerHTML =
+      `<b>Jam + Fog and Jam + Cloudy are the worst cells</b> — P90 hits 47 minutes, vs 28-32 minutes for Low-traffic/Sandstorms or Sunny. Semi-Urban and Urban orders under Jam+Fog/Cloudy run even worse (P90 53-54 min on thinner samples) — see the recommendation below.`;
+  })();
+
+  // ============ Breach drivers (horizontal bar) ============
+  (function(){
+    const rows = DATA.b5_breach_drivers.slice(0, 8);
+    const W = 920, H = 280, M = { l: 190, r: 60, t: 10, b: 30 };
+    const plotW = W - M.l - M.r, plotH = H - M.t - M.b;
+    const svg = document.getElementById('chart-breach');
+    svg.innerHTML = '';
+    const barH = 24, gap = (plotH - barH*rows.length) / (rows.length-1);
+    const maxV = Math.max(...rows.map(r=>r.pct_of_all_breaches)) * 1.2;
+
+    rows.forEach((r, idx) => {
+      const y = M.t + idx*(barH+gap);
+      const label = el('text', { x: M.l-10, y: y+barH/2+4, class:'tick-label', 'text-anchor':'end' });
+      label.textContent = `${r.city_tier==='Metropolitian'?'Metro':r.city_tier} · ${r.traffic_density} · ${r.weather}`;
+      svg.appendChild(label);
+      const w = (r.pct_of_all_breaches/maxV) * plotW;
+      const rect = el('rect', { x: M.l, y, width: w, height: barH, rx:4, fill: C('--critical'), style:'cursor:pointer' });
+      rect.addEventListener('pointermove', (e) => {
+        showTooltip(e.clientX, e.clientY, `<div class="t-title">${r.city_tier} · ${r.traffic_density} traffic · ${r.weather}</div>
+          <div class="t-row"><span class="t-key" style="background:${C('--critical')}"></span><span class="t-val">${r.pct_of_all_breaches}%</span> <span class="t-name">of all &gt;40min breaches</span></div>
+          <div class="t-row"><span class="t-key" style="background:transparent"></span><span class="t-name">${r.pct_breach}% of these ${fmtInt(r.n_orders)} orders breach</span></div>`);
+      });
+      rect.addEventListener('pointerleave', hideTooltip);
+      svg.appendChild(rect);
+      const t = el('text', { x: M.l+w+8, y: y+barH/2+4, class:'axis-label', 'font-weight':600 });
+      t.textContent = r.pct_of_all_breaches + '%';
+      svg.appendChild(t);
+    });
+  })();
+
+  // ============ Delay decomposition (stacked bar) ============
+  (function(){
+    const order = ['Low','Medium','High','Jam'];
+    const rows = order.map(t => DATA.b4_delay_decomposition.find(r => r.traffic_density === t)).filter(Boolean);
+    const W = 920, H = 220, M = { l: 90, r: 60, t: 10, b: 30 };
+    const plotW = W - M.l - M.r, plotH = H - M.t - M.b;
+    const svg = document.getElementById('chart-delay');
+    svg.innerHTML = '';
+    const barH = 28, gap = (plotH - barH*rows.length) / (rows.length-1);
+    const maxV = Math.max(...rows.map(r=>r.avg_total_min)) * 1.15;
+
+    rows.forEach((r, idx) => {
+      const y = M.t + idx*(barH+gap);
+      const label = el('text', { x: M.l-10, y: y+barH/2+4, class:'tick-label', 'text-anchor':'end', 'font-weight':600 });
+      label.textContent = r.traffic_density;
+      svg.appendChild(label);
+      const pickupW = (r.avg_pickup_delay_min/maxV)*plotW;
+      const transitW = (r.avg_transit_min/maxV)*plotW;
+      const r1 = el('rect', { x: M.l, y, width: Math.max(pickupW-1,0), height: barH, rx:3, fill: C('--series-3'), style:'cursor:pointer' });
+      r1.addEventListener('pointermove', (e) => showTooltip(e.clientX, e.clientY, `<div class="t-title">${r.traffic_density} traffic</div><div class="t-row"><span class="t-key" style="background:${C('--series-3')}"></span><span class="t-val">${r.avg_pickup_delay_min} min</span> <span class="t-name">pickup delay (kitchen)</span></div>`));
+      r1.addEventListener('pointerleave', hideTooltip);
+      svg.appendChild(r1);
+      const r2 = el('rect', { x: M.l+pickupW+2, y, width: Math.max(transitW-1,0), height: barH, rx:3, fill: C('--series-1'), style:'cursor:pointer' });
+      r2.addEventListener('pointermove', (e) => showTooltip(e.clientX, e.clientY, `<div class="t-title">${r.traffic_density} traffic</div><div class="t-row"><span class="t-key" style="background:${C('--series-1')}"></span><span class="t-val">${r.avg_transit_min} min</span> <span class="t-name">transit (road)</span></div>`));
+      r2.addEventListener('pointerleave', hideTooltip);
+      svg.appendChild(r2);
+      const t = el('text', { x: M.l+pickupW+transitW+10, y: y+barH/2+4, class:'axis-label', 'font-weight':600 });
+      t.textContent = r.avg_total_min + ' min total';
+      svg.appendChild(t);
+    });
+
+    const legend = document.getElementById('legend-delay');
+    [['Pickup delay (kitchen)', C('--series-3')], ['Transit (road)', C('--series-1')]].forEach(([name,color]) => {
+      const item = document.createElement('div'); item.className='item';
+      item.innerHTML = `<span class="swatch-box" style="background:${color}"></span><span></span>`;
+      item.querySelector('span:last-child').textContent = name;
+      legend.appendChild(item);
+    });
+
+    document.getElementById('finding-delay').innerHTML =
+      `<b>Pickup delay is flat at ~10 minutes regardless of traffic — the variability is 100% on the road.</b> Transit time nearly doubles from 11.4 min (Low traffic) to 21.2 min (Jam), while kitchen-side pickup delay barely moves. This is a routing/ETA-buffering problem, not a restaurant-operations problem.`;
+  })();
+
+  // ============ Rider factors: multiple deliveries + vehicle condition ============
+  (function(){
+    function drawBarSet(svgId, rows, xKey, xLabel) {
+      const W = 420, H = 220, M = { l: 40, r: 16, t: 10, b: 34 };
+      const plotW = W-M.l-M.r, plotH = H-M.t-M.b;
+      const svg = document.getElementById(svgId);
+      svg.innerHTML = '';
+      const maxV = Math.max(...rows.map(r=>r.p90_time)) * 1.15;
+      const step = plotW/rows.length, bw = Math.min(46, step*0.55);
+      [0,10,20,30,40,50].filter(v=>v<=maxV).forEach(v => {
+        const y = M.t+plotH-(v/maxV)*plotH;
+        svg.appendChild(el('line', {x1:M.l,x2:W-M.r,y1:y,y2:y,class:'grid-line'}));
+        const t = el('text', {x:M.l-6,y:y+3,class:'tick-label','text-anchor':'end'}); t.textContent=v; svg.appendChild(t);
+      });
+      svg.appendChild(el('line', {x1:M.l,x2:W-M.r,y1:M.t+plotH,y2:M.t+plotH,class:'baseline'}));
+      rows.forEach((r,i) => {
+        const x = M.l + step*i + (step-bw)/2;
+        const medY = M.t+plotH-(r.median_time/maxV)*plotH;
+        const p90Y = M.t+plotH-(r.p90_time/maxV)*plotH;
+        const rectP90 = el('rect', {x, y:p90Y, width:bw, height:(M.t+plotH)-p90Y, rx:3, fill: C('--seq-300'), style:'cursor:pointer'});
+        rectP90.addEventListener('pointermove', (e) => showTooltip(e.clientX,e.clientY, `<div class="t-title">${r[xKey]}</div><div class="t-row"><span class="t-key" style="background:${C('--seq-300')}"></span><span class="t-val">${r.p90_time}</span><span class="t-name">P90 min</span></div><div class="t-row"><span class="t-key" style="background:${C('--series-1')}"></span><span class="t-val">${r.median_time}</span><span class="t-name">median min (n=${fmtInt(r.n_orders)})</span></div>`));
+        rectP90.addEventListener('pointerleave', hideTooltip);
+        svg.appendChild(rectP90);
+        const medBarH = (M.t+plotH)-medY;
+        const rectMed = el('rect', {x, y:medY, width:bw, height:medBarH, rx:3, fill: C('--series-1'), style:'cursor:pointer'});
+        rectMed.addEventListener('pointermove', (e) => showTooltip(e.clientX,e.clientY, `<div class="t-title">${r[xKey]}</div><div class="t-row"><span class="t-key" style="background:${C('--series-1')}"></span><span class="t-val">${r.median_time}</span><span class="t-name">median min (n=${fmtInt(r.n_orders)})</span></div>`));
+        rectMed.addEventListener('pointerleave', hideTooltip);
+        svg.appendChild(rectMed);
+        const t = el('text', {x:x+bw/2,y:H-M.b+18,class:'tick-label','text-anchor':'middle'}); t.textContent = r[xKey]; svg.appendChild(t);
+      });
+    }
+    const multi = [0,1,2,3].map(v => DATA.b3_multiple_deliveries.find(r=>r.multiple_deliveries===v)).filter(Boolean);
+    drawBarSet('chart-multi', multi, 'multiple_deliveries', 'Stacked deliveries');
+    const vc = [0,1,2,3].map(v => DATA.b3_vehicle_condition.find(r=>r.vehicle_condition===v)).filter(Boolean);
+    drawBarSet('chart-vehcond', vc, 'vehicle_condition', 'Vehicle condition');
+
+    document.getElementById('finding-rider').innerHTML =
+      `<b>Stacking is the strongest single lever in this view.</b> Median time more than doubles from 22 min (single delivery) to 48 min (3 stacked deliveries). Worst-condition vehicles (0) also run meaningfully slower (28 median / 44 P90) than well-maintained ones (24 / 37).`;
+  })();
+
+  // ============ Recommendation ============
+  document.getElementById('rec-text').innerHTML = `
+    <p><b>Buffer ETA conditionally, not blanket:</b> add a buffer for Metro orders under Jam traffic + Fog or Cloudy weather specifically — together these two combinations alone account for ~36% of all &gt;40-minute deliveries, from just 2 of the ~24 condition cells tracked. Leave Low-traffic and Sunny/Sandstorm cells untouched — they already run near the 40-minute SLA comfortably.</p>
+    <p><b>Cap stacked deliveries at 2 per trip</b> for orders already flagged in a high-traffic cell — 3-stack trips under Jam are the closest thing to a guaranteed breach in this data.</p>
+    <p><b>Don't chase the kitchen.</b> Pickup delay is flat at ~10 minutes regardless of conditions — the reliability problem is entirely in transit/routing, so operational fixes belong with riders and dispatch, not restaurant-side pickup SLAs.</p>
+    <p><b>How to know it worked:</b> after buffering, track P90 (not average) delivery time in the targeted cells only, plus reorder rate for customers who received a buffered ETA vs a matched control — the buffer should raise perceived reliability without simply making every quote longer.</p>
+  `;
+
+})();
+</script>

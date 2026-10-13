@@ -1,0 +1,5 @@
+vehicle_type,n_orders,median_time,p90_time
+electric_scooter,3814,24.0,37.0
+bicycle,68,26.0,39.0
+scooter,15273,24.0,37.0
+motorcycle,26429,26.0,42.0

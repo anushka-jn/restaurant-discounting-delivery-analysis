@@ -1,0 +1,16 @@
+price_band,discount_depth_band,restaurant_count,mean_rating_count,median_rating_count
+Value,Mid,287,458.0,100.0
+Mid,Mid,2643,890.0,100.0
+Premium,Very High,241,930.0,100.0
+Premium,High,172,632.0,50.0
+Premium,Low,186,706.0,100.0
+Value,None,446,704.0,100.0
+Mid,High,6250,917.0,100.0
+Mid,Very High,1870,919.0,100.0
+Premium,Mid,777,617.0,100.0
+Budget,None,159,298.0,100.0
+Budget,Very High,12514,572.0,100.0
+Mid,None,94,935.0,100.0
+Budget,High,49,447.0,100.0
+Value,High,14905,779.0,100.0
+Value,Very High,35758,774.0,100.0

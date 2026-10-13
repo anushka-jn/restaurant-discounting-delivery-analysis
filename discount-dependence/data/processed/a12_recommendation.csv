@@ -1,0 +1,31 @@
+peer_group_key,restaurant_count,pct_over_discounter,avg_discount_depth_pct
+Neemuch || North Indian || Value,17,52.9,55.0
+Karur || South Indian || Value,16,50.0,59.8
+Chidambaram || Chinese || Value,17,47.1,59.1
+Pali || North Indian || Value,17,47.1,55.0
+Udaipur || Pastas || Value,17,47.1,73.4
+Palghar || Fast Food || Budget,15,46.7,77.9
+Nellore || North Indian || Value,26,46.2,54.4
+Thanjavur || Chinese || Value,22,45.5,59.1
+Rajkot || Desserts || Value,32,43.8,61.8
+Mughalsarai || North Indian || Value,16,43.8,61.6
+Ballari || Chinese || Value,16,43.8,49.5
+Bareilly || Pizzas || Budget,23,43.5,71.6
+Thiruvananthapuram || Desserts || Value,28,42.9,65.8
+Varanasi || Indian || Mid,28,42.9,30.3
+Nagpur || Beverages || Budget,26,42.3,89.4
+Hajipur || South Indian || Value,31,41.9,52.8
+Kochi || Beverages || Budget,24,41.7,87.3
+Jamnagar || Pizzas || Value,17,41.2,49.8
+Doddaballapura || Ice Cream || Value,17,41.2,66.7
+Patiala || Bakery || Value,17,41.2,54.6
+Agra || Desserts || Value,17,41.2,49.0
+Manipal || Chinese || Value,30,40.0,59.7
+Bangalore || Bakery || Budget,20,40.0,85.8
+Vizag || Ice Cream || Value,20,40.0,50.3
+Manipal || Desserts || Value,20,40.0,55.4
+Sikar || Pizzas || Value,15,40.0,63.0
+Mayiladuthurai || South Indian || Budget,15,40.0,90.7
+Phagwara || Chinese || Value,15,40.0,55.8
+Kottarakkara || Chinese || Budget,15,40.0,80.4
+Kollam || Chinese || Budget,15,40.0,80.4

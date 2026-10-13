@@ -1,0 +1,636 @@
+<title>Discount Dependence</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-page: #f9f9f7;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --gridline: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --series-1: #2a78d6; /* blue */
+    --series-2: #eb6834; /* orange */
+    --series-3: #1baf7a; /* aqua */
+    --series-4: #eda100; /* yellow */
+    --good: #0ca30c;
+    --warning: #fab219;
+    --serious: #ec835a;
+    --critical: #d03b3b;
+    --seq-250: #86b6ef;
+    --seq-350: #5598e7;
+    --seq-450: #2a78d6;
+    --seq-550: #1c5cab;
+    --seq-650: #104281;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --surface-page: #0d0d0d;
+      --text-primary: #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted: #898781;
+      --gridline: #2c2c2a;
+      --baseline: #383835;
+      --border: rgba(255,255,255,0.10);
+      --series-1: #3987e5;
+      --series-2: #d95926;
+      --series-3: #199e70;
+      --series-4: #c98500;
+      --good: #0ca30c;
+      --warning: #fab219;
+      --serious: #ec835a;
+      --critical: #e66767;
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --surface-page: #0d0d0d;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --gridline: #2c2c2a;
+    --baseline: #383835;
+    --border: rgba(255,255,255,0.10);
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --good: #0ca30c;
+    --warning: #fab219;
+    --serious: #ec835a;
+    --critical: #e66767;
+  }
+
+  * { box-sizing: border-box; }
+  .viz-root {
+    background: var(--surface-page);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 20px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+
+  header.page h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  header.page p.lede { color: var(--text-secondary); font-size: 14.5px; max-width: 700px; line-height: 1.5; margin: 0 0 4px; }
+  header.page .source { color: var(--text-muted); font-size: 12.5px; margin-top: 10px; }
+
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0,1fr));
+    gap: 10px;
+    margin: 22px 0 30px;
+  }
+  @media (max-width: 760px) { .kpi-row { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+  .kpi {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 14px 12px;
+  }
+  .kpi .label { font-size: 11.5px; color: var(--text-secondary); margin-bottom: 6px; }
+  .kpi .value { font-size: 26px; font-weight: 600; line-height: 1.1; }
+  .kpi .value.good { color: var(--good); }
+  .kpi .value.critical { color: var(--critical); }
+  .kpi .sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+  section.card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 20px 16px;
+    margin-bottom: 20px;
+  }
+  section.card h2 { font-size: 16.5px; margin: 0 0 4px; }
+  section.card p.dek { font-size: 13px; color: var(--text-secondary); margin: 0 0 16px; max-width: 640px; line-height: 1.5; }
+  section.card .finding {
+    background: color-mix(in srgb, var(--series-1) 8%, transparent);
+    border-left: 3px solid var(--series-1);
+    padding: 10px 14px;
+    border-radius: 0 8px 8px 0;
+    font-size: 13px;
+    color: var(--text-primary);
+    margin-top: 14px;
+    line-height: 1.55;
+  }
+  section.card .finding b { color: var(--series-1); }
+
+  .chart-scroll { overflow-x: auto; }
+  svg.chart { display: block; width: 100%; height: auto; overflow: visible; }
+  .axis-label { fill: var(--text-muted); font-size: 10.5px; }
+  .tick-label { fill: var(--text-muted); font-size: 10px; }
+  .grid-line { stroke: var(--gridline); stroke-width: 1; }
+  .baseline { stroke: var(--baseline); stroke-width: 1; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; font-size: 12px; color: var(--text-secondary); }
+  .legend .item { display: flex; align-items: center; gap: 6px; }
+  .legend .swatch-line { width: 14px; height: 2px; border-radius: 1px; }
+  .legend .swatch-box { width: 10px; height: 10px; border-radius: 2px; }
+
+  .tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    z-index: 50;
+    opacity: 0;
+    transition: opacity 0.08s;
+    max-width: 240px;
+  }
+  .tooltip.show { opacity: 1; }
+  .tooltip .t-title { color: var(--text-secondary); font-size: 11px; margin-bottom: 4px; }
+  .tooltip .t-row { display: flex; align-items: center; gap: 6px; }
+  .tooltip .t-row + .t-row { margin-top: 3px; }
+  .tooltip .t-key { width: 10px; height: 2px; border-radius: 1px; flex: none; }
+  .tooltip .t-val { font-weight: 600; color: var(--text-primary); }
+  .tooltip .t-name { color: var(--text-secondary); }
+
+  table.rec {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  table.rec th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-muted);
+    font-weight: 600;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--gridline);
+  }
+  table.rec td {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--gridline);
+    font-variant-numeric: tabular-nums;
+  }
+  table.rec td.num { text-align: right; }
+  table.rec tr:hover td { background: color-mix(in srgb, var(--series-1) 5%, transparent); }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .pill.critical { background: color-mix(in srgb, var(--critical) 16%, transparent); color: var(--critical); }
+
+  ul.limits { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.7; color: var(--text-secondary); }
+  ul.limits li b { color: var(--text-primary); }
+
+  footer.page { margin-top: 30px; font-size: 11.5px; color: var(--text-muted); line-height: 1.7; border-top: 1px solid var(--gridline); padding-top: 16px; }
+  footer.page code { background: var(--gridline); padding: 1px 5px; border-radius: 4px; }
+
+  .quad-row { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 6px; }
+  @media (max-width: 700px) { .quad-row { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+  .quad-tile { border-radius: 10px; padding: 14px; border: 1px solid var(--border); }
+  .quad-tile .q-name { font-size: 12.5px; font-weight: 600; margin-bottom: 6px; }
+  .quad-tile .q-pct { font-size: 22px; font-weight: 700; }
+  .quad-tile .q-desc { font-size: 11.5px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4; }
+</style>
+
+<div class="viz-root">
+<div class="wrap">
+
+  <header class="page">
+    <h1>Discount Dependence Analysis</h1>
+    <p class="lede">Which restaurants convert discount into real traction, and which are just leaking margin. Built on 139,319 real Swiggy restaurant listings across 581 Indian cities and 117 cuisines — cleaned, feature-engineered, and analysed entirely in SQL (DuckDB).</p>
+    <p class="source" id="source-line">Source: Kaggle — Swiggy restaurant listings (scraped dataset). Loading…</p>
+  </header>
+
+  <div class="kpi-row" id="kpi-row"></div>
+
+  <section class="card">
+    <h2>Where discount stops buying traction</h2>
+    <p class="dek">Mean rating count (a traction proxy) by discount depth, within each price band. Cold-start restaurants (&lt;20 ratings) are excluded — a brand-new listing's low count reflects age, not discount response. Bands under 30 restaurants are dropped as too thin to read.</p>
+    <div class="legend" id="legend-saturation"></div>
+    <div class="chart-scroll"><svg class="chart" id="chart-saturation" viewBox="0 0 920 320"></svg></div>
+    <div class="finding" id="finding-saturation"></div>
+  </section>
+
+  <section class="card">
+    <h2>How deep restaurants discount, by price band</h2>
+    <p class="dek">Share of restaurants in each discount-depth band (None / Low &lt;15% / Mid 15–30% / High 30–50% / Very High &gt;50%, implied from live offer text), within each price band.</p>
+    <div class="legend" id="legend-depth"></div>
+    <div class="chart-scroll"><svg class="chart" id="chart-depth" viewBox="0 0 920 300"></svg></div>
+    <div class="finding" id="finding-depth"></div>
+  </section>
+
+  <section class="card">
+    <h2>Who's punching above their discount, and who's leaking</h2>
+    <p class="dek">Discount Efficiency Index: each restaurant's traction percentile minus its discount-depth percentile, computed within its own city × cuisine × price-band peer group (groups under 15 restaurants excluded — see limitations).</p>
+    <div class="quad-row" id="quad-tiles"></div>
+    <p class="dek" style="margin-top:16px;">Over-discounter share by price band:</p>
+    <div class="chart-scroll"><svg class="chart" id="chart-leakage" viewBox="0 0 920 200"></svg></div>
+  </section>
+
+  <section class="card">
+    <h2>Does deep discounting cost quality?</h2>
+    <p class="dek">Average rating by discount depth band, across all restaurants with a rating.</p>
+    <div class="chart-scroll"><svg class="chart" id="chart-rating" viewBox="0 0 920 240"></svg></div>
+    <div class="finding" id="finding-rating"></div>
+  </section>
+
+  <section class="card">
+    <h2>Cold start: is deep discounting an acquisition cost?</h2>
+    <p class="dek">Among restaurants with fewer than 20 ratings, share that have never received a single rating yet — by discount depth band.</p>
+    <div class="chart-scroll"><svg class="chart" id="chart-coldstart" viewBox="0 0 920 240"></svg></div>
+    <div class="finding" id="finding-coldstart"></div>
+  </section>
+
+  <section class="card">
+    <h2>Where to cap discount depth first</h2>
+    <p class="dek">Peer-group cells (city × cuisine × price band, ≥15 restaurants) with the highest share of Over-Discounters — the candidates for a capped-offer experiment.</p>
+    <div id="rec-table"></div>
+  </section>
+
+  <section class="card">
+    <h2>Limitations</h2>
+    <ul class="limits">
+      <li><b>Reverse causality is plausible.</b> Struggling restaurants may discount more <i>because</i> they're struggling, not the other way round. This analysis locates the cells worth testing — it does not prove discounting causes low traction. Fix: randomise offer caps across matched city×cuisine cells and measure order volume + partner churn over 8 weeks.</li>
+      <li><b>Rating count is a demand proxy, not order volume</b> — and it's scraped as a coarse floor (10+, 20+, 50+, 100+, 500+, 1K+, 5K+, 10K+; only 15 distinct levels across 139K restaurants). The median collapses onto one bucket for most groups, so every chart here uses the mean, which still reflects how the underlying mix shifts.</li>
+      <li><b>Discount depth for flat-₹ offers is implied, not measured.</b> Percent-off offers give a real percentage; flat-₹ offers (e.g. "FLAT ₹120 OFF") don't carry one, so depth is estimated as flat_amount ÷ cost_for_two. This is a stated modelling assumption.</li>
+      <li><b>42% of restaurants (59,099) sit in peer groups smaller than 15</b> and are excluded from every peer-relative comparison (efficiency index, quadrant tiering, leakage sizing, recommendation table) — thin cells were dropped rather than trusted.</li>
+      <li><b>This dataset carries no free-delivery offers</b> — only percent-off, flat-₹, and a small number of BOGO deals (&lt;0.1% of restaurants) — so the "free delivery vs % off" comparison from the original brief doesn't apply here; BOGO's rarity is reported instead.</li>
+    </ul>
+  </section>
+
+  <footer class="page">
+    Pipeline: DuckDB SQL (staging → cleaning → offer-text parsing → feature engineering → analysis), orchestrated with a Python/duckdb runner. Raw offer text (e.g. <code>"20% OFF UPTO ₹100\nUSE CODE...ABOVE ₹149"</code>) parsed with regex into offer type, discount %, cap, and minimum order. Full SQL and cleaned tables available in the project repo (<code>sql/</code>, <code>data/processed/</code>).
+  </footer>
+
+</div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script id="dashboard-data" type="application/json">{"a1_penetration_city":[{"city":"Kanpur","restaurant_count":2000,"pct_with_offer":98.1},{"city":"Central-Goa","restaurant_count":1998,"pct_with_offer":99.6},{"city":"Hyderabad","restaurant_count":1998,"pct_with_offer":99.1},{"city":"Vadodara","restaurant_count":1998,"pct_with_offer":99.0},{"city":"Indore","restaurant_count":1998,"pct_with_offer":98.9},{"city":"Nagpur","restaurant_count":1998,"pct_with_offer":99.5},{"city":"Lucknow","restaurant_count":1996,"pct_with_offer":99.5},{"city":"Jaipur","restaurant_count":1990,"pct_with_offer":99.5},{"city":"Kanchrapara","restaurant_count":1977,"pct_with_offer":88.5},{"city":"Kolkata","restaurant_count":1974,"pct_with_offer":99.6},{"city":"Bhubaneswar","restaurant_count":1906,"pct_with_offer":99.1},{"city":"Doddaballapura","restaurant_count":1893,"pct_with_offer":98.8},{"city":"Mumbai","restaurant_count":1893,"pct_with_offer":99.2},{"city":"Coimbatore","restaurant_count":1889,"pct_with_offer":99.2},{"city":"Ahmedabad","restaurant_count":1801,"pct_with_offer":98.9},{"city":"Delhi","restaurant_count":1783,"pct_with_offer":99.3},{"city":"Vizag","restaurant_count":1753,"pct_with_offer":98.9},{"city":"Surat","restaurant_count":1751,"pct_with_offer":99.4},{"city":"Bangalore","restaurant_count":1719,"pct_with_offer":98.9},{"city":"Gurgaon","restaurant_count":1714,"pct_with_offer":99.2},{"city":"Patna","restaurant_count":1689,"pct_with_offer":99.6},{"city":"Guwahati","restaurant_count":1683,"pct_with_offer":99.2},{"city":"Hajipur","restaurant_count":1657,"pct_with_offer":98.9},{"city":"Varanasi","restaurant_count":1588,"pct_with_offer":98.0},{"city":"Pune","restaurant_count":1512,"pct_with_offer":99.4}],"a2_penetration_cuisine":[{"primary_cuisine":"North Indian","restaurant_count":20154,"pct_with_offer":99.2},{"primary_cuisine":"Chinese","restaurant_count":18844,"pct_with_offer":98.8},{"primary_cuisine":"Indian","restaurant_count":16452,"pct_with_offer":98.8},{"primary_cuisine":"Biryani","restaurant_count":9798,"pct_with_offer":97.9},{"primary_cuisine":"Pizzas","restaurant_count":8602,"pct_with_offer":99.1},{"primary_cuisine":"South Indian","restaurant_count":8188,"pct_with_offer":98.4},{"primary_cuisine":"Bakery","restaurant_count":7806,"pct_with_offer":99.0},{"primary_cuisine":"Beverages","restaurant_count":7272,"pct_with_offer":99.2},{"primary_cuisine":"Snacks","restaurant_count":6287,"pct_with_offer":98.6},{"primary_cuisine":"Fast Food","restaurant_count":5411,"pct_with_offer":99.0},{"primary_cuisine":"Desserts","restaurant_count":3416,"pct_with_offer":98.7},{"primary_cuisine":"Burgers","restaurant_count":3124,"pct_with_offer":98.6},{"primary_cuisine":"Ice Cream","restaurant_count":2444,"pct_with_offer":97.8},{"primary_cuisine":"Sweets","restaurant_count":2245,"pct_with_offer":97.6},{"primary_cuisine":"Italian","restaurant_count":1512,"pct_with_offer":99.4},{"primary_cuisine":"Arabian","restaurant_count":1187,"pct_with_offer":98.1},{"primary_cuisine":"Street Food","restaurant_count":1083,"pct_with_offer":98.8},{"primary_cuisine":"Chaat","restaurant_count":1041,"pct_with_offer":98.2},{"primary_cuisine":"Pastas","restaurant_count":1034,"pct_with_offer":99.2},{"primary_cuisine":"Continental","restaurant_count":996,"pct_with_offer":98.1}],"a3_depth_by_price_band":[{"price_band":"Mid","discount_depth_band":"High","restaurant_count":10687,"pct_within_band":57.9},{"price_band":"Mid","discount_depth_band":"Very High","restaurant_count":2804,"pct_within_band":15.2},{"price_band":"Premium","discount_depth_band":"Mid","restaurant_count":1495,"pct_within_band":60.6},{"price_band":"Budget","discount_depth_band":"None","restaurant_count":416,"pct_within_band":1.7},{"price_band":"Value","discount_depth_band":"Mid","restaurant_count":671,"pct_within_band":0.7},{"price_band":"Value","discount_depth_band":"Very High","restaurant_count":63437,"pct_within_band":67.9},{"price_band":"Value","discount_depth_band":"High","restaurant_count":28228,"pct_within_band":30.2},{"price_band":"Value","discount_depth_band":"None","restaurant_count":1127,"pct_within_band":1.2},{"price_band":"Premium","discount_depth_band":"Low","restaurant_count":333,"pct_within_band":13.5},{"price_band":"Budget","discount_depth_band":"Very High","restaurant_count":24423,"pct_within_band":97.9},{"price_band":"Mid","discount_depth_band":"None","restaurant_count":192,"pct_within_band":1.0},{"price_band":"Budget","discount_depth_band":"High","restaurant_count":79,"pct_within_band":0.3},{"price_band":"Mid","discount_depth_band":"Mid","restaurant_count":4763,"pct_within_band":25.8},{"price_band":"Premium","discount_depth_band":"Very High","restaurant_count":351,"pct_within_band":14.2},{"price_band":"Premium","discount_depth_band":"High","restaurant_count":271,"pct_within_band":11.0},{"price_band":"Premium","discount_depth_band":"None","restaurant_count":17,"pct_within_band":0.7},{"price_band":"Budget","discount_depth_band":"Mid","restaurant_count":25,"pct_within_band":0.1}],"a4_demand_response":[{"price_band":"Value","discount_depth_band":"Mid","restaurant_count":287,"mean_rating_count":458.0,"median_rating_count":100.0},{"price_band":"Mid","discount_depth_band":"Mid","restaurant_count":2643,"mean_rating_count":890.0,"median_rating_count":100.0},{"price_band":"Premium","discount_depth_band":"Very High","restaurant_count":241,"mean_rating_count":930.0,"median_rating_count":100.0},{"price_band":"Premium","discount_depth_band":"High","restaurant_count":172,"mean_rating_count":632.0,"median_rating_count":50.0},{"price_band":"Premium","discount_depth_band":"Low","restaurant_count":186,"mean_rating_count":706.0,"median_rating_count":100.0},{"price_band":"Value","discount_depth_band":"None","restaurant_count":446,"mean_rating_count":704.0,"median_rating_count":100.0},{"price_band":"Mid","discount_depth_band":"High","restaurant_count":6250,"mean_rating_count":917.0,"median_rating_count":100.0},{"price_band":"Mid","discount_depth_band":"Very High","restaurant_count":1870,"mean_rating_count":919.0,"median_rating_count":100.0},{"price_band":"Premium","discount_depth_band":"Mid","restaurant_count":777,"mean_rating_count":617.0,"median_rating_count":100.0},{"price_band":"Budget","discount_depth_band":"None","restaurant_count":159,"mean_rating_count":298.0,"median_rating_count":100.0},{"price_band":"Budget","discount_depth_band":"Very High","restaurant_count":12514,"mean_rating_count":572.0,"median_rating_count":100.0},{"price_band":"Mid","discount_depth_band":"None","restaurant_count":94,"mean_rating_count":935.0,"median_rating_count":100.0},{"price_band":"Budget","discount_depth_band":"High","restaurant_count":49,"mean_rating_count":447.0,"median_rating_count":100.0},{"price_band":"Value","discount_depth_band":"High","restaurant_count":14905,"mean_rating_count":779.0,"median_rating_count":100.0},{"price_band":"Value","discount_depth_band":"Very High","restaurant_count":35758,"mean_rating_count":774.0,"median_rating_count":100.0}],"a5_saturation":[{"price_band":"Budget","discount_depth_band":"None","band_rank":0,"mean_rating_count":298.0,"incremental_traction":null},{"price_band":"Budget","discount_depth_band":"High","band_rank":3,"mean_rating_count":447.0,"incremental_traction":149.0},{"price_band":"Budget","discount_depth_band":"Very High","band_rank":4,"mean_rating_count":572.0,"incremental_traction":125.0},{"price_band":"Mid","discount_depth_band":"None","band_rank":0,"mean_rating_count":935.0,"incremental_traction":null},{"price_band":"Mid","discount_depth_band":"Mid","band_rank":2,"mean_rating_count":890.0,"incremental_traction":-45.0},{"price_band":"Mid","discount_depth_band":"High","band_rank":3,"mean_rating_count":917.0,"incremental_traction":27.0},{"price_band":"Mid","discount_depth_band":"Very High","band_rank":4,"mean_rating_count":919.0,"incremental_traction":2.0},{"price_band":"Premium","discount_depth_band":"Low","band_rank":1,"mean_rating_count":706.0,"incremental_traction":null},{"price_band":"Premium","discount_depth_band":"Mid","band_rank":2,"mean_rating_count":617.0,"incremental_traction":-89.0},{"price_band":"Premium","discount_depth_band":"High","band_rank":3,"mean_rating_count":632.0,"incremental_traction":15.0},{"price_band":"Premium","discount_depth_band":"Very High","band_rank":4,"mean_rating_count":930.0,"incremental_traction":298.0},{"price_band":"Value","discount_depth_band":"None","band_rank":0,"mean_rating_count":704.0,"incremental_traction":null},{"price_band":"Value","discount_depth_band":"Mid","band_rank":2,"mean_rating_count":458.0,"incremental_traction":-246.0},{"price_band":"Value","discount_depth_band":"High","band_rank":3,"mean_rating_count":779.0,"incremental_traction":321.0},{"price_band":"Value","discount_depth_band":"Very High","band_rank":4,"mean_rating_count":774.0,"incremental_traction":-5.0}],"a6_rating_quality_vs_depth":[{"discount_depth_band":"Mid","restaurant_count":5104,"avg_rating":4.13},{"discount_depth_band":"Low","restaurant_count":246,"avg_rating":4.18},{"discount_depth_band":"None","restaurant_count":1135,"avg_rating":4.01},{"discount_depth_band":"High","restaurant_count":29483,"avg_rating":4.07},{"discount_depth_band":"Very High","restaurant_count":69894,"avg_rating":4.02}],"a9_leakage_overall":[{"quadrant":"Over-Discounter","restaurant_count":13268,"pct_of_scored":16.5},{"quadrant":"Struggling","restaurant_count":30700,"pct_of_scored":38.3},{"quadrant":"Efficient Discounter","restaurant_count":13028,"pct_of_scored":16.2},{"quadrant":"Organic Star","restaurant_count":23224,"pct_of_scored":29.0}],"a9_leakage_by_price_band":[{"price_band":"Value","pct_over_discounter":17.3,"restaurant_count":62933},{"price_band":"Mid","pct_over_discounter":17.0,"restaurant_count":8290},{"price_band":"Premium","pct_over_discounter":22.4,"restaurant_count":286},{"price_band":"Budget","pct_over_discounter":10.5,"restaurant_count":8711}],"a10_cold_start_check":[{"discount_depth_band":"Low","restaurant_count":147,"pct_never_rated":59.2},{"discount_depth_band":"None","restaurant_count":1050,"pct_never_rated":58.8},{"discount_depth_band":"Mid","restaurant_count":3243,"pct_never_rated":57.0},{"discount_depth_band":"Very High","restaurant_count":40632,"pct_never_rated":52.0},{"discount_depth_band":"High","restaurant_count":17889,"pct_never_rated":54.7}],"a11_offer_type_mix":[{"price_band":"Value","has_bogo_offer":false,"restaurant_count":50914,"mean_rating_count":774.0},{"price_band":"Mid","has_bogo_offer":false,"restaurant_count":10761,"mean_rating_count":911.0},{"price_band":"Budget","has_bogo_offer":true,"restaurant_count":7,"mean_rating_count":1594.0},{"price_band":"Premium","has_bogo_offer":false,"restaurant_count":1376,"mean_rating_count":686.0},{"price_band":"Value","has_bogo_offer":true,"restaurant_count":36,"mean_rating_count":742.0},{"price_band":"Budget","has_bogo_offer":false,"restaurant_count":12560,"mean_rating_count":571.0},{"price_band":"Mid","has_bogo_offer":true,"restaurant_count":2,"mean_rating_count":550.0}],"a12_recommendation":[{"peer_group_key":"Neemuch || North Indian || Value","restaurant_count":17,"pct_over_discounter":52.9,"avg_discount_depth_pct":55.0},{"peer_group_key":"Karur || South Indian || Value","restaurant_count":16,"pct_over_discounter":50.0,"avg_discount_depth_pct":59.8},{"peer_group_key":"Chidambaram || Chinese || Value","restaurant_count":17,"pct_over_discounter":47.1,"avg_discount_depth_pct":59.1},{"peer_group_key":"Pali || North Indian || Value","restaurant_count":17,"pct_over_discounter":47.1,"avg_discount_depth_pct":55.0},{"peer_group_key":"Udaipur || Pastas || Value","restaurant_count":17,"pct_over_discounter":47.1,"avg_discount_depth_pct":73.4},{"peer_group_key":"Palghar || Fast Food || Budget","restaurant_count":15,"pct_over_discounter":46.7,"avg_discount_depth_pct":77.9},{"peer_group_key":"Nellore || North Indian || Value","restaurant_count":26,"pct_over_discounter":46.2,"avg_discount_depth_pct":54.4},{"peer_group_key":"Thanjavur || Chinese || Value","restaurant_count":22,"pct_over_discounter":45.5,"avg_discount_depth_pct":59.1},{"peer_group_key":"Rajkot || Desserts || Value","restaurant_count":32,"pct_over_discounter":43.8,"avg_discount_depth_pct":61.8},{"peer_group_key":"Mughalsarai || North Indian || Value","restaurant_count":16,"pct_over_discounter":43.8,"avg_discount_depth_pct":61.6},{"peer_group_key":"Ballari || Chinese || Value","restaurant_count":16,"pct_over_discounter":43.8,"avg_discount_depth_pct":49.5},{"peer_group_key":"Bareilly || Pizzas || Budget","restaurant_count":23,"pct_over_discounter":43.5,"avg_discount_depth_pct":71.6},{"peer_group_key":"Thiruvananthapuram || Desserts || Value","restaurant_count":28,"pct_over_discounter":42.9,"avg_discount_depth_pct":65.8},{"peer_group_key":"Varanasi || Indian || Mid","restaurant_count":28,"pct_over_discounter":42.9,"avg_discount_depth_pct":30.3},{"peer_group_key":"Nagpur || Beverages || Budget","restaurant_count":26,"pct_over_discounter":42.3,"avg_discount_depth_pct":89.4},{"peer_group_key":"Hajipur || South Indian || Value","restaurant_count":31,"pct_over_discounter":41.9,"avg_discount_depth_pct":52.8},{"peer_group_key":"Kochi || Beverages || Budget","restaurant_count":24,"pct_over_discounter":41.7,"avg_discount_depth_pct":87.3},{"peer_group_key":"Jamnagar || Pizzas || Value","restaurant_count":17,"pct_over_discounter":41.2,"avg_discount_depth_pct":49.8},{"peer_group_key":"Doddaballapura || Ice Cream || Value","restaurant_count":17,"pct_over_discounter":41.2,"avg_discount_depth_pct":66.7},{"peer_group_key":"Patiala || Bakery || Value","restaurant_count":17,"pct_over_discounter":41.2,"avg_discount_depth_pct":54.6},{"peer_group_key":"Agra || Desserts || Value","restaurant_count":17,"pct_over_discounter":41.2,"avg_discount_depth_pct":49.0},{"peer_group_key":"Manipal || Chinese || Value","restaurant_count":30,"pct_over_discounter":40.0,"avg_discount_depth_pct":59.7},{"peer_group_key":"Bangalore || Bakery || Budget","restaurant_count":20,"pct_over_discounter":40.0,"avg_discount_depth_pct":85.8},{"peer_group_key":"Vizag || Ice Cream || Value","restaurant_count":20,"pct_over_discounter":40.0,"avg_discount_depth_pct":50.3},{"peer_group_key":"Manipal || Desserts || Value","restaurant_count":20,"pct_over_discounter":40.0,"avg_discount_depth_pct":55.4},{"peer_group_key":"Sikar || Pizzas || Value","restaurant_count":15,"pct_over_discounter":40.0,"avg_discount_depth_pct":63.0},{"peer_group_key":"Mayiladuthurai || South Indian || Budget","restaurant_count":15,"pct_over_discounter":40.0,"avg_discount_depth_pct":90.7},{"peer_group_key":"Phagwara || Chinese || Value","restaurant_count":15,"pct_over_discounter":40.0,"avg_discount_depth_pct":55.8},{"peer_group_key":"Kottarakkara || Chinese || Budget","restaurant_count":15,"pct_over_discounter":40.0,"avg_discount_depth_pct":80.4},{"peer_group_key":"Kollam || Chinese || Budget","restaurant_count":15,"pct_over_discounter":40.0,"avg_discount_depth_pct":80.4}],"summary":{"total_restaurants":139319,"total_cities":581,"total_cuisines":117,"pct_with_offer":98.7,"scored_n":80220,"n_dropped_thin_peer_groups":59099,"over_discounter_pct":16.5,"organic_star_pct":29.0}}</script>
+<script>
+(function(){
+  const DATA = JSON.parse(document.getElementById('dashboard-data').textContent);
+  const root = document.querySelector('.viz-root');
+  const cs = getComputedStyle(root);
+  const C = (name) => cs.getPropertyValue(name).trim();
+
+  const fmtInt = (n) => Math.round(n).toLocaleString('en-IN');
+  const fmtCompact = (n) => {
+    if (n >= 1000) return (n/1000).toFixed(1).replace(/\.0$/,'') + 'K';
+    return Math.round(n).toString();
+  };
+
+  const tooltip = document.getElementById('tooltip');
+  function showTooltip(x, y, html) {
+    tooltip.innerHTML = html;
+    tooltip.style.left = Math.min(x + 14, window.innerWidth - 260) + 'px';
+    tooltip.style.top = (y + 14) + 'px';
+    tooltip.classList.add('show');
+  }
+  function hideTooltip() { tooltip.classList.remove('show'); }
+
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  function el(tag, attrs) {
+    const e = document.createElementNS(SVGNS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  // ---------- KPI row ----------
+  const s = DATA.summary;
+  const kpis = [
+    { label: 'Restaurants analysed', value: fmtInt(s.total_restaurants), sub: `${s.total_cities} cities · ${s.total_cuisines} cuisines` },
+    { label: 'Run at least one offer', value: s.pct_with_offer + '%', sub: 'discounting is table stakes, not a differentiator' },
+    { label: 'Over-discounters', value: s.over_discounter_pct + '%', valueClass: 'critical', sub: 'high depth, low traction — margin leakage' },
+    { label: 'Organic stars', value: s.organic_star_pct + '%', valueClass: 'good', sub: 'high traction, low/no discount' },
+    { label: 'Excluded from peer scoring', value: fmtInt(s.n_dropped_thin_peer_groups), sub: 'peer group smaller than 15 restaurants' },
+  ];
+  const kpiRow = document.getElementById('kpi-row');
+  kpis.forEach(k => {
+    const div = document.createElement('div');
+    div.className = 'kpi';
+    div.innerHTML = `<div class="label"></div><div class="value ${k.valueClass||''}"></div><div class="sub"></div>`;
+    div.querySelector('.label').textContent = k.label;
+    div.querySelector('.value').textContent = k.value;
+    div.querySelector('.sub').textContent = k.sub;
+    kpiRow.appendChild(div);
+  });
+  document.getElementById('source-line').textContent =
+    `Source: Kaggle "Swiggy Restaurants" dataset (${fmtInt(140657)} raw listings → ${fmtInt(s.total_restaurants)} after dedup/cleaning). Pipeline: DuckDB SQL.`;
+
+  // ============ Chart: Saturation (multi-line) ============
+  (function(){
+    const bandOrder = ['None','Low','Mid','High','Very High'];
+    const priceBands = ['Budget','Value','Mid','Premium'];
+    const colors = { Budget: C('--series-1'), Value: C('--series-2'), Mid: C('--series-3'), Premium: C('--series-4') };
+    const rows = DATA.a5_saturation;
+
+    const byBand = {};
+    priceBands.forEach(pb => byBand[pb] = {});
+    rows.forEach(r => { byBand[r.price_band][r.discount_depth_band] = r; });
+
+    const W = 920, H = 320, M = { l: 56, r: 130, t: 16, b: 40 };
+    const plotW = W - M.l - M.r, plotH = H - M.t - M.b;
+    const svg = document.getElementById('chart-saturation');
+    svg.innerHTML = '';
+
+    const allVals = rows.map(r => r.mean_rating_count);
+    const yMax = Math.ceil(Math.max(...allVals) / 100) * 100 + 100;
+    const yMin = 0;
+    const xStep = plotW / (bandOrder.length - 1);
+    const xPos = (i) => M.l + i * xStep;
+    const yPos = (v) => M.t + plotH - ((v - yMin) / (yMax - yMin)) * plotH;
+
+    // gridlines + y ticks
+    const ticks = 5;
+    for (let i = 0; i <= ticks; i++) {
+      const v = yMin + (yMax - yMin) * i / ticks;
+      const y = yPos(v);
+      svg.appendChild(el('line', { x1: M.l, x2: W - M.r, y1: y, y2: y, class: 'grid-line' }));
+      const t = el('text', { x: M.l - 8, y: y + 3, class: 'tick-label', 'text-anchor': 'end' });
+      t.textContent = fmtCompact(v);
+      svg.appendChild(t);
+    }
+    // x axis labels
+    bandOrder.forEach((b, i) => {
+      const t = el('text', { x: xPos(i), y: H - M.b + 18, class: 'tick-label', 'text-anchor': 'middle' });
+      t.textContent = b;
+      svg.appendChild(t);
+    });
+    svg.appendChild(el('line', { x1: M.l, x2: W - M.r, y1: M.t + plotH, y2: M.t + plotH, class: 'baseline' }));
+
+    priceBands.forEach(pb => {
+      const pts = bandOrder.map((b, i) => byBand[pb][b] ? { i, v: byBand[pb][b].mean_rating_count, n: byBand[pb][b].restaurant_count } : null);
+      const present = pts.filter(Boolean);
+      if (present.length < 2) return;
+      let d = '';
+      present.forEach((p, idx) => { d += (idx === 0 ? 'M' : 'L') + xPos(p.i) + ',' + yPos(p.v) + ' '; });
+      svg.appendChild(el('path', { d, fill: 'none', stroke: colors[pb], 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+
+      present.forEach(p => {
+        const cx = xPos(p.i), cy = yPos(p.v);
+        const dot = el('circle', { cx, cy, r: 4, fill: colors[pb], stroke: C('--surface-1'), 'stroke-width': 2 });
+        const hit = el('circle', { cx, cy, r: 14, fill: 'transparent', style: 'cursor:pointer' });
+        hit.addEventListener('pointermove', (e) => {
+          showTooltip(e.clientX, e.clientY,
+            `<div class="t-title">${bandOrder[p.i]} depth · ${pb}</div>
+             <div class="t-row"><span class="t-key" style="background:${colors[pb]}"></span><span class="t-val">${fmtInt(p.v)}</span> <span class="t-name">mean rating count (n=${fmtInt(p.n)})</span></div>`);
+        });
+        hit.addEventListener('pointerleave', hideTooltip);
+        svg.appendChild(dot);
+        svg.appendChild(hit);
+      });
+
+      // end label
+      const last = present[present.length - 1];
+      const t = el('text', { x: xPos(last.i) + 10, y: yPos(last.v) + 4, class: 'axis-label', fill: colors[pb], 'font-weight': 600 });
+      t.textContent = pb;
+      svg.appendChild(t);
+    });
+
+    const legend = document.getElementById('legend-saturation');
+    priceBands.forEach(pb => {
+      const item = document.createElement('div'); item.className = 'item';
+      item.innerHTML = `<span class="swatch-line" style="background:${colors[pb]}"></span><span></span>`;
+      item.querySelector('span:last-child').textContent = pb;
+      legend.appendChild(item);
+    });
+
+    document.getElementById('finding-saturation').innerHTML =
+      `<b>Value and Mid price bands flatten.</b> In Value (the largest segment, ~63,000 restaurants), mean traction moves from 779 at "High" depth to 774 at "Very High" — statistically flat. In Mid, 917 → 919. Pushing past ~30–50% discount depth in these two bands buys essentially nothing further, while presumably costing real margin. Budget and Premium don't show the same plateau in this data.`;
+  })();
+
+  // ============ Chart: Depth distribution (100% stacked bar) ============
+  (function(){
+    const bandOrder = ['None','Low','Mid','High','Very High'];
+    const seqColors = [C('--seq-250'), C('--seq-350'), C('--seq-450'), C('--seq-550'), C('--seq-650')];
+    const priceBands = ['Budget','Value','Mid','Premium'];
+    const rows = DATA.a3_depth_by_price_band;
+    const byBand = {}; priceBands.forEach(pb => byBand[pb] = {});
+    rows.forEach(r => byBand[r.price_band][r.discount_depth_band] = r);
+
+    const W = 920, H = 300, M = { l: 90, r: 20, t: 10, b: 34 };
+    const plotW = W - M.l - M.r, plotH = H - M.t - M.b;
+    const svg = document.getElementById('chart-depth');
+    svg.innerHTML = '';
+    const barH = 34, gap = (plotH - barH * priceBands.length) / (priceBands.length - 1);
+
+    priceBands.forEach((pb, rowIdx) => {
+      const y = M.t + rowIdx * (barH + gap);
+      let xCursor = M.l;
+      const label = el('text', { x: M.l - 10, y: y + barH/2 + 4, class: 'tick-label', 'text-anchor': 'end', 'font-weight': 600 });
+      label.textContent = pb;
+      svg.appendChild(label);
+
+      bandOrder.forEach((b, i) => {
+        const cell = byBand[pb][b];
+        const pct = cell ? cell.pct_within_band : 0;
+        const segW = (pct / 100) * plotW;
+        if (segW <= 0) return;
+        const rectW = Math.max(segW - 2, 0);
+        const rect = el('rect', { x: xCursor, y, width: rectW, height: barH, rx: 3, fill: seqColors[i], style: 'cursor:pointer' });
+        rect.addEventListener('pointermove', (e) => {
+          showTooltip(e.clientX, e.clientY,
+            `<div class="t-title">${pb} · ${b} depth</div>
+             <div class="t-row"><span class="t-key" style="background:${seqColors[i]}"></span><span class="t-val">${pct}%</span> <span class="t-name">of ${pb} (${fmtInt(cell.restaurant_count)} restaurants)</span></div>`);
+        });
+        rect.addEventListener('pointerleave', hideTooltip);
+        svg.appendChild(rect);
+        if (segW > 34) {
+          const t = el('text', { x: xCursor + rectW/2, y: y + barH/2 + 4, 'text-anchor': 'middle', 'font-size': 11, fill: '#fff', 'font-weight': 600 });
+          t.textContent = pct + '%';
+          svg.appendChild(t);
+        }
+        xCursor += segW;
+      });
+    });
+
+    const legend = document.getElementById('legend-depth');
+    bandOrder.forEach((b, i) => {
+      const item = document.createElement('div'); item.className = 'item';
+      item.innerHTML = `<span class="swatch-box" style="background:${seqColors[i]}"></span><span></span>`;
+      item.querySelector('span:last-child').textContent = b;
+      legend.appendChild(item);
+    });
+
+    document.getElementById('finding-depth').innerHTML =
+      `<b>Budget restaurants have almost no choice.</b> 97.9% of Budget-band restaurants sit at "Very High" implied depth (&gt;50%) — at that price point, deep discounting isn't a strategy, it's the market clearing price. Mid and Premium restaurants spread more evenly across Mid/High depth.`;
+  })();
+
+  // ============ Quadrant tiles + leakage by price band ============
+  (function(){
+    const quad = {}; DATA.a9_leakage_overall.forEach(r => quad[r.quadrant] = r);
+    const specs = [
+      { key: 'Organic Star', color: C('--good'), desc: 'High traction, low or no discount.' },
+      { key: 'Efficient Discounter', color: C('--series-1'), desc: 'High traction, high discount — earning it.' },
+      { key: 'Over-Discounter', color: C('--critical'), desc: 'High discount, low traction — leakage.' },
+      { key: 'Struggling', color: C('--warning'), desc: 'Low traction, low discount.' },
+    ];
+    const wrap = document.getElementById('quad-tiles');
+    specs.forEach(sp => {
+      const r = quad[sp.key] || { pct_of_scored: 0, restaurant_count: 0 };
+      const tile = document.createElement('div');
+      tile.className = 'quad-tile';
+      tile.style.borderLeft = `3px solid ${sp.color}`;
+      tile.innerHTML = `<div class="q-name"></div><div class="q-pct" style="color:${sp.color}"></div><div class="q-desc"></div>`;
+      tile.querySelector('.q-name').textContent = sp.key;
+      tile.querySelector('.q-pct').textContent = r.pct_of_scored + '%';
+      tile.querySelector('.q-desc').textContent = sp.desc + ` (${fmtInt(r.restaurant_count)} restaurants)`;
+      wrap.appendChild(tile);
+    });
+
+    // leakage by price band bar chart
+    const rows = DATA.a9_leakage_by_price_band.slice().sort((a,b) => b.pct_over_discounter - a.pct_over_discounter);
+    const W = 920, H = 200, M = { l: 90, r: 60, t: 10, b: 30 };
+    const plotW = W - M.l - M.r, plotH = H - M.t - M.b;
+    const svg = document.getElementById('chart-leakage');
+    svg.innerHTML = '';
+    const barH = 24, gap = (plotH - barH * rows.length) / (rows.length - 1);
+    const maxPct = Math.max(...rows.map(r => r.pct_over_discounter)) * 1.25;
+
+    rows.forEach((r, idx) => {
+      const y = M.t + idx * (barH + gap);
+      const label = el('text', { x: M.l - 10, y: y + barH/2 + 4, class: 'tick-label', 'text-anchor': 'end', 'font-weight': 600 });
+      label.textContent = r.price_band;
+      svg.appendChild(label);
+      const w = (r.pct_over_discounter / maxPct) * plotW;
+      const rect = el('rect', { x: M.l, y, width: w, height: barH, rx: 4, fill: C('--critical'), style: 'cursor:pointer' });
+      rect.addEventListener('pointermove', (e) => {
+        showTooltip(e.clientX, e.clientY,
+          `<div class="t-title">${r.price_band}</div>
+           <div class="t-row"><span class="t-key" style="background:${C('--critical')}"></span><span class="t-val">${r.pct_over_discounter}%</span> <span class="t-name">over-discounters (of ${fmtInt(r.restaurant_count)})</span></div>`);
+      });
+      rect.addEventListener('pointerleave', hideTooltip);
+      svg.appendChild(rect);
+      const t = el('text', { x: M.l + w + 8, y: y + barH/2 + 4, class: 'axis-label', 'font-weight': 600 });
+      t.textContent = r.pct_over_discounter + '%';
+      svg.appendChild(t);
+    });
+  })();
+
+  // ============ Rating quality vs depth ============
+  (function(){
+    const bandOrder = ['None','Low','Mid','High','Very High'];
+    const seqColors = [C('--seq-250'), C('--seq-350'), C('--seq-450'), C('--seq-550'), C('--seq-650')];
+    const byBand = {}; DATA.a6_rating_quality_vs_depth.forEach(r => byBand[r.discount_depth_band] = r);
+
+    const W = 920, H = 240, M = { l: 50, r: 20, t: 16, b: 40 };
+    const plotW = W - M.l - M.r, plotH = H - M.t - M.b;
+    const svg = document.getElementById('chart-rating');
+    svg.innerHTML = '';
+    const yMin = 3.5, yMax = 4.5;
+    const yPos = (v) => M.t + plotH - ((v - yMin)/(yMax-yMin))*plotH;
+    [3.5,3.75,4,4.25,4.5].forEach(v => {
+      const y = yPos(v);
+      svg.appendChild(el('line', { x1: M.l, x2: W-M.r, y1: y, y2: y, class: 'grid-line' }));
+      const t = el('text', { x: M.l - 8, y: y+3, class: 'tick-label', 'text-anchor': 'end' });
+      t.textContent = v.toFixed(2);
+      svg.appendChild(t);
+    });
+    const bw = 60, step = plotW / bandOrder.length;
+    bandOrder.forEach((b, i) => {
+      const cell = byBand[b];
+      if (!cell) return;
+      const x = M.l + step*i + (step-bw)/2;
+      const barTop = yPos(cell.avg_rating);
+      const rect = el('rect', { x, y: barTop, width: bw, height: (M.t+plotH)-barTop, rx: 3, fill: seqColors[i], style: 'cursor:pointer' });
+      rect.addEventListener('pointermove', (e) => {
+        showTooltip(e.clientX, e.clientY,
+          `<div class="t-title">${b} depth</div>
+           <div class="t-row"><span class="t-key" style="background:${seqColors[i]}"></span><span class="t-val">${cell.avg_rating}</span> <span class="t-name">avg rating (n=${fmtInt(cell.restaurant_count)})</span></div>`);
+      });
+      rect.addEventListener('pointerleave', hideTooltip);
+      svg.appendChild(rect);
+      const vt = el('text', { x: x+bw/2, y: barTop-6, 'text-anchor':'middle', class:'axis-label', 'font-weight':600 });
+      vt.textContent = cell.avg_rating;
+      svg.appendChild(vt);
+      const t = el('text', { x: x+bw/2, y: H-M.b+18, class:'tick-label', 'text-anchor':'middle' });
+      t.textContent = b;
+      svg.appendChild(t);
+    });
+    svg.appendChild(el('line', { x1: M.l, x2: W-M.r, y1: M.t+plotH, y2: M.t+plotH, class:'baseline' }));
+
+    document.getElementById('finding-rating').innerHTML =
+      `<b>No quality penalty.</b> Average rating barely moves across depth bands (4.01 at "None" to 4.18 at "Low", 4.02 at "Very High") — deep discounters aren't attracting harsher reviews or masking a quality problem in this data.`;
+  })();
+
+  // ============ Cold start check ============
+  (function(){
+    const bandOrder = ['None','Low','Mid','High','Very High'];
+    const seqColors = [C('--seq-250'), C('--seq-350'), C('--seq-450'), C('--seq-550'), C('--seq-650')];
+    const byBand = {}; DATA.a10_cold_start_check.forEach(r => byBand[r.discount_depth_band] = r);
+
+    const W = 920, H = 240, M = { l: 50, r: 20, t: 16, b: 40 };
+    const plotW = W - M.l - M.r, plotH = H - M.t - M.b;
+    const svg = document.getElementById('chart-coldstart');
+    svg.innerHTML = '';
+    const yMin = 0, yMax = 70;
+    const yPos = (v) => M.t + plotH - ((v-yMin)/(yMax-yMin))*plotH;
+    [0,20,40,60].forEach(v => {
+      const y = yPos(v);
+      svg.appendChild(el('line', { x1: M.l, x2: W-M.r, y1: y, y2: y, class: 'grid-line' }));
+      const t = el('text', { x: M.l-8, y: y+3, class:'tick-label', 'text-anchor':'end' });
+      t.textContent = v + '%';
+      svg.appendChild(t);
+    });
+    const bw = 60, step = plotW/bandOrder.length;
+    bandOrder.forEach((b,i) => {
+      const cell = byBand[b];
+      if (!cell) return;
+      const x = M.l + step*i + (step-bw)/2;
+      const barTop = yPos(cell.pct_never_rated);
+      const rect = el('rect', { x, y: barTop, width: bw, height: (M.t+plotH)-barTop, rx:3, fill: seqColors[i], style:'cursor:pointer' });
+      rect.addEventListener('pointermove', (e) => {
+        showTooltip(e.clientX, e.clientY,
+          `<div class="t-title">${b} depth</div>
+           <div class="t-row"><span class="t-key" style="background:${seqColors[i]}"></span><span class="t-val">${cell.pct_never_rated}%</span> <span class="t-name">never rated (n=${fmtInt(cell.restaurant_count)})</span></div>`);
+      });
+      rect.addEventListener('pointerleave', hideTooltip);
+      svg.appendChild(rect);
+      const vt = el('text', { x: x+bw/2, y: barTop-6, 'text-anchor':'middle', class:'axis-label', 'font-weight':600 });
+      vt.textContent = cell.pct_never_rated + '%';
+      svg.appendChild(vt);
+      const t = el('text', { x: x+bw/2, y: H-M.b+18, class:'tick-label', 'text-anchor':'middle' });
+      t.textContent = b;
+      svg.appendChild(t);
+    });
+    svg.appendChild(el('line', { x1: M.l, x2: W-M.r, y1: M.t+plotH, y2: M.t+plotH, class:'baseline' }));
+
+    document.getElementById('finding-coldstart').innerHTML =
+      `<b>Deep discounting does correlate with escaping "never rated."</b> Among restaurants under 20 ratings, 58.8% at "None" depth have zero ratings at all, vs 52.0% at "Very High" depth. Directionally consistent with deep discounting acting as an acquisition cost for new supply — though this is still correlational (newer restaurants may simply discount harder by default).`;
+  })();
+
+  // ============ Recommendation table ============
+  (function(){
+    const rows = DATA.a12_recommendation.slice(0, 15);
+    const container = document.getElementById('rec-table');
+    const table = document.createElement('table');
+    table.className = 'rec';
+    table.innerHTML = `<thead><tr>
+        <th>City</th><th>Cuisine</th><th>Price band</th>
+        <th class="num">Restaurants</th><th class="num">Over-discounter %</th><th class="num">Avg depth</th>
+      </tr></thead><tbody></tbody>`;
+    const tbody = table.querySelector('tbody');
+    rows.forEach(r => {
+      const [city, cuisine, band] = r.peer_group_key.split(' || ');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td></td><td></td><td></td>
+        <td class="num"></td><td class="num"></td><td class="num"></td>`;
+      const cells = tr.querySelectorAll('td');
+      cells[0].textContent = city;
+      cells[1].textContent = cuisine;
+      cells[2].textContent = band;
+      cells[3].textContent = fmtInt(r.restaurant_count);
+      cells[4].innerHTML = '';
+      const pill = document.createElement('span');
+      pill.className = 'pill critical';
+      pill.textContent = r.pct_over_discounter + '%';
+      cells[4].appendChild(pill);
+      cells[5].textContent = r.avg_discount_depth_pct + '%';
+      tbody.appendChild(tr);
+    });
+    container.appendChild(table);
+  })();
+
+})();
+</script>

@@ -1,0 +1,16 @@
+price_band,discount_depth_band,band_rank,mean_rating_count,incremental_traction
+Budget,None,0,298.0,
+Budget,High,3,447.0,149.0
+Budget,Very High,4,572.0,125.0
+Mid,None,0,935.0,
+Mid,Mid,2,890.0,-45.0
+Mid,High,3,917.0,27.0
+Mid,Very High,4,919.0,2.0
+Premium,Low,1,706.0,
+Premium,Mid,2,617.0,-89.0
+Premium,High,3,632.0,15.0
+Premium,Very High,4,930.0,298.0
+Value,None,0,704.0,
+Value,Mid,2,458.0,-246.0
+Value,High,3,779.0,321.0
+Value,Very High,4,774.0,-5.0

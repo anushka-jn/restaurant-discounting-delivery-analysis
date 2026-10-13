@@ -1,0 +1,18 @@
+price_band,discount_depth_band,restaurant_count,pct_within_band
+Mid,High,10687,57.9
+Mid,Very High,2804,15.2
+Premium,Mid,1495,60.6
+Budget,None,416,1.7
+Value,Mid,671,0.7
+Value,Very High,63437,67.9
+Value,High,28228,30.2
+Value,None,1127,1.2
+Premium,Low,333,13.5
+Budget,Very High,24423,97.9
+Mid,None,192,1.0
+Budget,High,79,0.3
+Mid,Mid,4763,25.8
+Premium,Very High,351,14.2
+Premium,High,271,11.0
+Premium,None,17,0.7
+Budget,Mid,25,0.1

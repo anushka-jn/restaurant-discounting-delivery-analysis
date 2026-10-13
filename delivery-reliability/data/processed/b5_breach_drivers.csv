@@ -1,0 +1,16 @@
+city_tier,traffic_density,weather,n_orders,n_breaches,pct_breach,pct_of_all_breaches
+Metropolitian,Jam,Fog,2000,707.0,35.4,18.3
+Metropolitian,Jam,Cloudy,1931,675.0,35.0,17.5
+Metropolitian,Jam,Windy,1837,289.0,15.7,7.5
+Metropolitian,Jam,Sandstorms,1887,287.0,15.2,7.4
+Metropolitian,Jam,Stormy,1807,246.0,13.6,6.4
+Metropolitian,Medium,Cloudy,1400,189.0,13.5,4.9
+Metropolitian,Medium,Fog,1401,179.0,12.8,4.6
+Urban,Jam,Fog,368,114.0,31.0,3.0
+Metropolitian,Jam,Sunny,1622,116.0,7.2,3.0
+Metropolitian,High,Sunny,509,95.0,18.7,2.5
+Urban,Jam,Cloudy,332,95.0,28.6,2.5
+Metropolitian,Medium,Sandstorms,1392,70.0,5.0,1.8
+Metropolitian,Low,Cloudy,1833,66.0,3.6,1.7
+Metropolitian,Low,Fog,1848,66.0,3.6,1.7
+Metropolitian,Low,Sunny,1740,61.0,3.5,1.6

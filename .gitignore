@@ -1,0 +1,10 @@
+# Raw source data and rebuildable warehouse files -- large, regeneratable
+# build artifacts, not source. See each sub-folder's README for how to
+# pull the same public data and rebuild from scratch.
+data/raw/*.csv
+data/processed/*.duckdb
+data/processed/*.parquet
+
+__pycache__/
+*.pyc
+.DS_Store
