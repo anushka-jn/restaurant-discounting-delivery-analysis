@@ -1,5 +1,7 @@
 # Restaurant Discounting & Delivery Performance Analysis
 
+**Live:** https://restaurant-discounting-delivery-ana.vercel.app
+
 Two real-data SQL analyses of a food-delivery marketplace — one on the supply side (do restaurant discounts actually work?), one on the experience side (where does the delivery promise break?). Built entirely in DuckDB SQL, on real, publicly sourced datasets — no simulated numbers.
 
 ## The headline findings
